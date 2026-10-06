@@ -1,0 +1,123 @@
+/**
+ * AC — Context-Aware Cultural Remix Co-pilot
+ * Phase 2A.5: Model Registry & Task-Aware Model Pools
+ */
+
+export type GeminiTask = 'RECOMMENDATION' | 'BLUEPRINT' | 'VISUAL_QA';
+
+export interface ModelConfig {
+  id: string;
+  family: 'flash' | 'flash-lite';
+  role: 'classification-fast' | 'reasoning-heavy';
+  tierPreference: number;
+}
+
+/**
+ * CALL A — RECOMMENDATION MODEL POOL
+ * Order of preference:
+ * 1. gemini-3.5-flash-lite (fast, low-latency, sufficient for 3-class garment categorization)
+ * 2. gemini-3.1-flash-lite (reliable fallback candidate)
+ * 3. gemini-3.5-flash (capable fallback candidate)
+ */
+export const TASK_A_MODEL_POOL = [
+  'gemini-3.5-flash-lite',
+  'gemini-3.1-flash-lite',
+  'gemini-3.5-flash'
+] as const;
+
+/**
+ * CALL B — BLUEPRINT GENERATION MODEL POOL
+ * Order of preference:
+ * 1. gemini-3.8-flash (primary deep-reasoning fashion designer)
+ * 2. gemini-3.7-flash (secondary deep-reasoning fallback)
+ * 3. gemini-3.6-flash (tertiary structured output fallback)
+ * 4. gemini-3.5-flash (general flash fallback)
+ * 5. gemini-3.5-flash-lite (high-availability final candidate)
+ */
+export const TASK_B_MODEL_POOL = [
+  'gemini-3.8-flash',
+  'gemini-3.7-flash',
+  'gemini-3.6-flash',
+  'gemini-3.5-flash',
+  'gemini-3.5-flash-lite'
+] as const;
+
+/**
+ * CALL C — CULTURAL VISUAL QA MODEL POOL
+ * Order of preference:
+ * 1. gemini-3.8-flash (primary multimodal visual perception & cultural evidence extractor)
+ * 2. gemini-3.7-flash (secondary multimodal fallback)
+ * 3. gemini-3.6-flash (tertiary multimodal fallback)
+ * 4. gemini-3.5-flash (general flash multimodal fallback)
+ * 5. gemini-3.5-flash-lite (high-availability multimodal candidate)
+ */
+export const TASK_C_MODEL_POOL = [
+  'gemini-3.8-flash',
+  'gemini-3.7-flash',
+  'gemini-3.6-flash',
+  'gemini-3.5-flash',
+  'gemini-3.5-flash-lite'
+] as const;
+
+export type TaskAModelId = (typeof TASK_A_MODEL_POOL)[number];
+export type TaskBModelId = (typeof TASK_B_MODEL_POOL)[number];
+export type TaskCModelId = (typeof TASK_C_MODEL_POOL)[number];
+export type RouterModelId = TaskAModelId | TaskBModelId | TaskCModelId;
+
+export const ALL_ROUTER_MODELS: RouterModelId[] = Array.from(
+  new Set([...TASK_A_MODEL_POOL, ...TASK_B_MODEL_POOL, ...TASK_C_MODEL_POOL])
+);
+
+export const MODEL_CONFIGS: Record<RouterModelId, ModelConfig> = {
+  'gemini-3.8-flash': {
+    id: 'gemini-3.8-flash',
+    family: 'flash',
+    role: 'reasoning-heavy',
+    tierPreference: 1
+  },
+  'gemini-3.7-flash': {
+    id: 'gemini-3.7-flash',
+    family: 'flash',
+    role: 'reasoning-heavy',
+    tierPreference: 2
+  },
+  'gemini-3.6-flash': {
+    id: 'gemini-3.6-flash',
+    family: 'flash',
+    role: 'reasoning-heavy',
+    tierPreference: 3
+  },
+  'gemini-3.5-flash': {
+    id: 'gemini-3.5-flash',
+    family: 'flash',
+    role: 'reasoning-heavy',
+    tierPreference: 4
+  },
+  'gemini-3.5-flash-lite': {
+    id: 'gemini-3.5-flash-lite',
+    family: 'flash-lite',
+    role: 'classification-fast',
+    tierPreference: 1
+  },
+  'gemini-3.1-flash-lite': {
+    id: 'gemini-3.1-flash-lite',
+    family: 'flash-lite',
+    role: 'classification-fast',
+    tierPreference: 2
+  }
+};
+
+export function getModelPoolForTask(task: GeminiTask): readonly string[] {
+  switch (task) {
+    case 'RECOMMENDATION':
+      return TASK_A_MODEL_POOL;
+    case 'BLUEPRINT':
+      return TASK_B_MODEL_POOL;
+    case 'VISUAL_QA':
+      return TASK_C_MODEL_POOL;
+    default: {
+      const _exhaustive: never = task;
+      throw new Error(`Unknown task: ${_exhaustive}`);
+    }
+  }
+}
