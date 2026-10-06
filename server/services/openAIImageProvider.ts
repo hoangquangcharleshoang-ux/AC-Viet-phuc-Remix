@@ -25,6 +25,7 @@ import {
   GeneratedImagePayload,
   ImageProviderError
 } from './imageProvider';
+import { transformToTrue3x4 } from './imageTransformer';
 
 export interface OpenAIProviderConfig {
   apiKey?: string;
@@ -118,11 +119,12 @@ export class OpenAIImageProvider implements ImageProvider {
         }
 
         const buffer = Buffer.from(imageItem.b64_json, 'base64');
+        const transformed = await transformToTrue3x4(buffer, 'image/jpeg');
         return {
-          bytes: buffer,
-          mimeType: 'image/jpeg',
-          width: 1024,
-          height: 1536
+          bytes: transformed.bytes,
+          mimeType: transformed.mimeType,
+          width: transformed.width,
+          height: transformed.height
         };
       } catch (err: any) {
         if (err instanceof ImageProviderError) {

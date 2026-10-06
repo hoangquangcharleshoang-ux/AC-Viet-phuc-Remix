@@ -1316,7 +1316,7 @@ QUY TẮC QUAN SÁT THỊ GIÁC BẮT BUỘC (STRICT VISION AUDIT POLICY):
 - Ví dụ: Áo ngũ thân chụp chính diện không thấy thân thứ 5 (vạt con) -> trait five_panels_inner_flap = "NOT_ASSESSABLE".
 
 2. LOCAL RESOLUTION GUARD:
-- Trong ảnh 1024x1536, nếu các chi tiết nhỏ (số lượng chính xác của các khuy cài nhỏ, đường thêu vi mô, thớ dệt vải) không đủ độ phân giải điểm ảnh để khẳng định đúng/sai -> BẮT BUỘC trả về "NOT_ASSESSABLE".
+- Trong ảnh 1152x1536 (Tỷ lệ 3:4), nếu các chi tiết nhỏ (số lượng chính xác của các khuy cài nhỏ, đường thêu vi mô, thớ dệt vải) không đủ độ phân giải điểm ảnh để khẳng định đúng/sai -> BẮT BUỘC trả về "NOT_ASSESSABLE".
 - TUYỆT ĐỐI KHÔNG đánh "FAIL" chỉ vì chi tiết quá nhỏ không nhìn rõ.
 
 3. VISIBLE VIOLATION EXCEPTION:
