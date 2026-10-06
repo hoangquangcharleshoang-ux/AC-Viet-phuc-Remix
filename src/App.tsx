@@ -260,6 +260,40 @@ export default function App() {
     accessoryStateVersion
   ]);
 
+  // Helper to determine if draftContext differs from committed activeParams
+  const isDraftDirty = (
+    draft: PersistedDraftContext,
+    committed: {
+      promptText: string;
+      selectedOccasion: string;
+      selectedStyle: string;
+      traditionalRatio: number;
+      genderPresentation?: GenderPresentation;
+    }
+  ): boolean => {
+    const draftPrompt = (draft.promptText || '').trim();
+    const committedPrompt = (committed.promptText || '').trim();
+    const draftOccasion = draft.selectedOccasionKey || 'ky_yeu';
+    const committedOccasion = committed.selectedOccasion || 'ky_yeu';
+    const draftStyle = draft.selectedStyleKey || 'tre_trung';
+    const committedStyle = committed.selectedStyle || 'tre_trung';
+    const draftRatio = draft.sliderValue ?? 50;
+    const committedRatio = committed.traditionalRatio ?? 50;
+    const draftGender = draft.genderPresentation || 'nam';
+    const committedGender = committed.genderPresentation || 'nam';
+
+    return (
+      draftPrompt !== committedPrompt ||
+      draftOccasion !== committedOccasion ||
+      draftStyle !== committedStyle ||
+      draftRatio !== committedRatio ||
+      draftGender !== committedGender
+    );
+  };
+
+  const hasResult = Boolean(recommendation && blueprint);
+  const isDirty = isDraftDirty(draftContext, activeParams);
+
   const handleExploreClick = () => {
     document.getElementById('section-garments')?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -270,7 +304,8 @@ export default function App() {
     activeParams.promptText.trim().toLowerCase(),
     activeParams.selectedOccasion,
     activeParams.selectedStyle,
-    activeParams.traditionalRatio
+    activeParams.traditionalRatio,
+    activeParams.genderPresentation || 'nam'
   ].join('|');
 
   const effectiveActiveAccessories = blueprint
@@ -390,22 +425,36 @@ export default function App() {
     traditionalRatio: number;
     genderPresentation?: 'nam' | 'nu' | 'neutral';
   }) => {
+    // Requirement C: Same-input CTA idempotency
+    const currentIsDirty = isDraftDirty(draftContext, activeParams);
+    const currentHasResult = Boolean(recommendation && blueprint);
+    if (!currentIsDirty && currentHasResult && !apiError) {
+      console.log('[App] Omnibox submit ignored: same input as committed context and result exists');
+      document.getElementById('section-recommendations')?.scrollIntoView({ behavior: 'smooth' });
+      return;
+    }
+
     const recRequestId = ++activeRecommendationRequestIdRef.current;
     const effectiveGender = payload.genderPresentation || draftContext.genderPresentation || 'nam';
     const paramsWithGender = {
       ...payload,
       genderPresentation: effectiveGender
     };
+
+    // Atomically commit context
     setActiveParams(paramsWithGender);
     setApiError(null);
+
+    // Reset downstream visualization/QA state on committed context change
     setLookbookState({ status: 'idle' });
+    setVisualQAState({ status: 'idle' });
     setIsRecommending(true);
 
     try {
       // 1. Call A: Garment Recommendation
       const recData = await recommendGarment(paramsWithGender);
       if (recRequestId !== activeRecommendationRequestIdRef.current) {
-        console.log('[App] Dropped obsolete Call A response');
+        console.log('[App] Dropped obsolete Call A response', { recRequestId, active: activeRecommendationRequestIdRef.current });
         return;
       }
       setRecommendation(recData);
@@ -420,20 +469,24 @@ export default function App() {
 
       // 2. Immediate Call B: Blueprint Generation for Primary Garment
       setBlueprint(null);
-      await executeCallB(primaryId, payload);
+      await executeCallB(primaryId, paramsWithGender);
     } catch (err: any) {
-      console.error('Pipeline Call A error:', err);
-      setRecommendation(null);
-      setBlueprint(null);
-      setApiError({
-        code: err.code || 'API_ERROR',
-        message: err.message || 'Không thể hoàn tất gợi ý trang phục lúc này.',
-        retryable: err.retryable ?? false,
-        failedStep: 'CALL_A',
-        retryAction: () => handleOmniboxSubmit(payload)
-      });
+      if (recRequestId === activeRecommendationRequestIdRef.current) {
+        console.error('Pipeline Call A error:', err);
+        setRecommendation(null);
+        setBlueprint(null);
+        setApiError({
+          code: err.code || 'API_ERROR',
+          message: err.message || 'Không thể hoàn tất gợi ý trang phục lúc này.',
+          retryable: err.retryable ?? false,
+          failedStep: 'CALL_A',
+          retryAction: () => handleOmniboxSubmit(payload)
+        });
+      }
     } finally {
-      setIsRecommending(false);
+      if (recRequestId === activeRecommendationRequestIdRef.current) {
+        setIsRecommending(false);
+      }
     }
   };
 
@@ -925,22 +978,12 @@ export default function App() {
           genderPresentation={draftContext.genderPresentation || 'nam'}
           onGenderChange={gender => {
             setDraftContext(p => ({ ...p, genderPresentation: gender }));
-            setActiveParams(p => ({ ...p, genderPresentation: gender }));
-            if (recommendation) {
-              setLookbookState({ status: 'idle' });
-              setVisualQAState({ status: 'idle' });
-              handleOmniboxSubmit({
-                promptText: activeParams.promptText,
-                selectedOccasion: activeParams.selectedOccasion,
-                selectedStyle: activeParams.selectedStyle,
-                traditionalRatio: activeParams.traditionalRatio,
-                genderPresentation: gender
-              });
-            }
           }}
           onExploreClick={handleExploreClick}
           onSubmitOmnibox={handleOmniboxSubmit}
           isRecommending={isRecommending}
+          hasResult={hasResult}
+          isDirty={isDirty}
         />
 
         {/* Truthful Runtime Status Banner */}

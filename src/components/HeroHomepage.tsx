@@ -38,6 +38,8 @@ interface HeroHomepageProps {
     genderPresentation?: 'nam' | 'nu' | 'neutral';
   }) => void;
   isRecommending?: boolean;
+  hasResult?: boolean;
+  isDirty?: boolean;
 }
 
 export const HeroHomepage: React.FC<HeroHomepageProps> = ({
@@ -56,7 +58,9 @@ export const HeroHomepage: React.FC<HeroHomepageProps> = ({
   onGenderChange,
   onExploreClick,
   onSubmitOmnibox,
-  isRecommending
+  isRecommending,
+  hasResult = false,
+  isDirty = false
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -202,10 +206,6 @@ export const HeroHomepage: React.FC<HeroHomepageProps> = ({
                 <span className="text-[11px] font-bold text-stone-400 uppercase tracking-wider">
                   DỊP
                 </span>
-                <span className="text-stone-300 font-light">•</span>
-                <span className="text-xs text-stone-500 font-medium">
-                  {currentOccasionObj.display}
-                </span>
               </div>
 
               {/* 6 Nút Pill Dịp — Indigo Aurora Tone */}
@@ -236,10 +236,6 @@ export const HeroHomepage: React.FC<HeroHomepageProps> = ({
                 <span className="text-[11px] font-bold text-stone-400 uppercase tracking-wider">
                   PHONG CÁCH
                 </span>
-                <span className="text-stone-300 font-light">•</span>
-                <span className="text-xs text-stone-500 font-medium">
-                  {currentStyleObj.label}
-                </span>
               </div>
 
               {/* 5 Nút Pill Phong Cách — Indigo Aurora Tone */}
@@ -269,10 +265,6 @@ export const HeroHomepage: React.FC<HeroHomepageProps> = ({
               <div className="flex items-center gap-2 text-xs">
                 <span className="text-[11px] font-bold text-stone-400 uppercase tracking-wider">
                   NGƯỜI MẶC
-                </span>
-                <span className="text-stone-300 font-light">•</span>
-                <span className="text-xs text-stone-500 font-medium capitalize">
-                  {genderPresentation === 'nu' ? 'Nữ' : genderPresentation === 'neutral' ? 'Không ưu tiên' : 'Nam'}
                 </span>
               </div>
 
@@ -370,7 +362,7 @@ export const HeroHomepage: React.FC<HeroHomepageProps> = ({
                     </>
                   ) : (
                     <>
-                      <span>Để AC gợi ý</span>
+                      <span>{hasResult && isDirty ? 'Cập nhật gợi ý' : 'Để AC gợi ý'}</span>
                       <ArrowRight className="w-4 h-4 text-white" />
                     </>
                   )}

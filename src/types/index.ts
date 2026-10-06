@@ -278,7 +278,7 @@ export interface GenerationSnapshot {
   lowerGarmentId: string;
   footwearId: string;
   activeAccessoryIds: string[];
-  committedContextSnapshot: {
+  committedContextSnapshot?: {
     promptText?: string;
     occasion: string;
     style: string;
