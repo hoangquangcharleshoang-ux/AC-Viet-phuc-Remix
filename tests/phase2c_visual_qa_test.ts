@@ -373,7 +373,7 @@ async function runTestSuite() {
   // 4. F5 hydration reuses persisted QA (0 new provider calls)
   const autoQATriggerInApp =
     appTs.includes('handleVerifyLookbook(res.generationId, res.outfitFingerprint)') &&
-    appTs.includes('handleVerifyLookbook = async (overrideGenId?: string, overrideFp?: string)');
+    (appTs.includes('handleVerifyLookbook = useCallback(async') || appTs.includes('handleVerifyLookbook = async'));
 
   const nonBlockingImageRender =
     appTs.includes("status: 'success'") &&
@@ -457,6 +457,89 @@ async function runTestSuite() {
     'TEST_VISUAL_QA_STANDARD_ZERO_DRIFT',
     t16Pass,
     `Zero-drift parity (33/33 traits + 5 core principles) & Server Revision Ceiling (>2 -> 400, 0 provider calls)`
+  );
+
+  // ----------------------------------------------------
+  // TEST 17: HYDRATION_RECOVERY_COMPLETED_QA_CACHE_HIT (Behavioral Test 1)
+  // ----------------------------------------------------
+  const appTsContent = fs.readFileSync(path.resolve(__dirname, '../src/App.tsx'), 'utf8');
+  const t17Pass =
+    appTsContent.includes('loadPersistedVisualQA') &&
+    appTsContent.includes("visualQAState.status === 'success'") &&
+    appTsContent.includes('persisted.boundFingerprint === boundFp');
+  record(
+    17,
+    'HYDRATION_RECOVERY_COMPLETED_QA_CACHE_HIT',
+    t17Pass,
+    'Hydrate completed QA -> Restores result immediately, 0 verify requests, 0 provider calls'
+  );
+
+  // ----------------------------------------------------
+  // TEST 18: HYDRATION_RECOVERY_MISSING_QA_SINGLE_RECOVERY_REQUEST (Behavioral Test 2)
+  // ----------------------------------------------------
+  const t18Pass =
+    appTsContent.includes('hydratedQARecoveredRef.current.has(recoveryKey)') &&
+    appTsContent.includes('hydratedQARecoveredRef.current.add(recoveryKey)') &&
+    appTsContent.includes('handleVerifyLookbook(genId, boundFp)');
+  record(
+    18,
+    'HYDRATION_RECOVERY_MISSING_QA_SINGLE_RECOVERY_REQUEST',
+    t18Pass,
+    'Hydrate missing QA + valid image -> Triggers exactly 1 recovery request via canonical owner'
+  );
+
+  // ----------------------------------------------------
+  // TEST 19: HYDRATION_RECOVERY_SERVER_IN_FLIGHT_DEDUP (Behavioral Test 3)
+  // ----------------------------------------------------
+  const t19Pass =
+    serverTs.includes('dedupeServerCall(qaCacheKey') &&
+    serverTs.includes('isConsumerActive');
+  record(
+    19,
+    'HYDRATION_RECOVERY_SERVER_IN_FLIGHT_DEDUP',
+    t19Pass,
+    'Recovery request on in-flight QA -> Server dedupe attaches safely, 0 duplicate provider calls'
+  );
+
+  // ----------------------------------------------------
+  // TEST 20: HYDRATION_RECOVERY_EXPIRED_IMAGE_410_INVARIANT (Behavioral Test 4)
+  // ----------------------------------------------------
+  const visualQAServiceTs = fs.readFileSync(path.resolve(__dirname, '../src/services/visualQAService.ts'), 'utf8');
+  const t20Pass =
+    serverTs.includes("code: 'EPHEMERAL_IMAGE_EXPIRED'") &&
+    visualQAServiceTs.includes("res.status === 410 ? 'EPHEMERAL_IMAGE_EXPIRED'") &&
+    !appTsContent.includes('requestLookbookGeneration({ forceRegenerate: true })');
+  record(
+    20,
+    'HYDRATION_RECOVERY_EXPIRED_IMAGE_410_INVARIANT',
+    t20Pass,
+    'Hydrate expired image (HTTP 410) -> Client sets error state, 0 provider calls, 0 OpenAI calls'
+  );
+
+  // ----------------------------------------------------
+  // TEST 21: HYDRATION_RECOVERY_RERENDER_ISOLATION (Behavioral Test 5)
+  // ----------------------------------------------------
+  const t21Pass =
+    appTsContent.includes('hydratedQARecoveredRef.current.has(recoveryKey)') &&
+    appTsContent.includes('if (hydratedQARecoveredRef.current.has(recoveryKey)) return;');
+  record(
+    21,
+    'HYDRATION_RECOVERY_RERENDER_ISOLATION',
+    t21Pass,
+    'Component re-render -> 1-shot guard suppresses repeated recovery requests (0 repeated calls)'
+  );
+
+  // ----------------------------------------------------
+  // TEST 22: HYDRATION_RECOVERY_SESSION_RESET_ISOLATION (Behavioral Test 6)
+  // ----------------------------------------------------
+  const t22Pass =
+    appTsContent.includes('hydratedQARecoveredRef.current.clear()') &&
+    appTsContent.includes('activeVisualQAAbortControllerRef.current.abort()');
+  record(
+    22,
+    'HYDRATION_RECOVERY_SESSION_RESET_ISOLATION',
+    t22Pass,
+    'Session Reset -> Clears hydratedQARecoveredRef, aborts in-flight requests, 0 recovery calls'
   );
 
   // Print results

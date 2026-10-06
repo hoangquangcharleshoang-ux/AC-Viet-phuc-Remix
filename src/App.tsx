@@ -4,7 +4,7 @@
  * Phase 2B.1: Session Persistence & Editorial Lookbook Refinement
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   OccasionId,
   RemixIntent,
@@ -100,6 +100,7 @@ export default function App() {
   const [activeRevisions, setActiveRevisions] = useState<LookbookRevisionItem[]>([]);
   const activeVisualQAAbortControllerRef = useRef<AbortController | null>(null);
   const activeVisualQAGenerationIdRef = useRef<string>('');
+  const hydratedQARecoveredRef = useRef<Set<string>>(new Set());
 
   // Stale-response protection refs
   const activeBlueprintRequestIdRef = useRef<number>(0);
@@ -546,8 +547,8 @@ export default function App() {
     }
   };
 
-  // Phase 2C: Cultural Visual QA Action (Step 5)
-  const handleVerifyLookbook = async (overrideGenId?: string, overrideFp?: string) => {
+  // Phase 2C: Cultural Visual QA Action (Step 5 - Single Orchestration Owner)
+  const handleVerifyLookbook = useCallback(async (overrideGenId?: string, overrideFp?: string) => {
     let targetGenId: string | undefined = overrideGenId;
     let targetBoundFp: string | undefined = overrideFp;
 
@@ -565,6 +566,15 @@ export default function App() {
     }
 
     if (!targetGenId || !targetBoundFp) {
+      return;
+    }
+
+    // In-flight & Completion Guard: Avoid redundant calls if already loading for the same targetGenId
+    if (
+      !overrideGenId &&
+      visualQAState.status === 'loading' &&
+      visualQAState.generationId === targetGenId
+    ) {
       return;
     }
 
@@ -626,7 +636,7 @@ export default function App() {
         activeVisualQAAbortControllerRef.current = null;
       }
     }
-  };
+  }, [lookbookState, visualQAState]);
 
   // Phase 2C: Trigger Grounded Correction Revision (Max 2 Revisions)
   const handleTriggerRevision = () => {
@@ -707,6 +717,39 @@ export default function App() {
     }
   }, [lookbookState]);
 
+  // Hydration Recovery Pathway for Visual QA (Requirement: Auto-recovery for missing completed QA after F5)
+  useEffect(() => {
+    if (!hasHydrated || !hasHydratedRef.current || isResettingRef.current) return;
+    if (lookbookState.status !== 'success') return;
+
+    const genId = lookbookState.generationId;
+    const boundFp = lookbookState.outfitFingerprint;
+    if (!genId || !boundFp) return;
+
+    const recoveryKey = `${genId}_${boundFp}`;
+
+    // If QA is already success in state, skip
+    if (visualQAState.status === 'success' && visualQAState.generationId === genId) return;
+
+    // Check if persistence has completed QA
+    const persisted = loadPersistedVisualQA(genId);
+    if (persisted && persisted.boundFingerprint === boundFp) {
+      setVisualQAState({
+        status: 'success',
+        generationId: genId,
+        result: persisted
+      });
+      return;
+    }
+
+    // Check 1-shot recovery guard per recoveryKey in current mount/session
+    if (hydratedQARecoveredRef.current.has(recoveryKey)) return;
+
+    hydratedQARecoveredRef.current.add(recoveryKey);
+    console.log('[Hydration Recovery] Triggering 1-shot recovery for missing QA:', { genId, boundFp });
+    handleVerifyLookbook(genId, boundFp);
+  }, [hasHydrated, lookbookState, visualQAState.status, handleVerifyLookbook]);
+
   // Reset Session Flow (Requirement 31 & Micro-Patch: Bắt đầu lại)
   const handleResetRequest = () => {
     console.log('[SessionReset] RESET_REQUEST_RECEIVED');
@@ -738,6 +781,7 @@ export default function App() {
     }
     activeLookbookFingerprintRef.current = '';
     activeVisualQAGenerationIdRef.current = '';
+    hydratedQARecoveredRef.current.clear();
     console.log('[SessionReset] INFLIGHT_INVALIDATED');
 
     // B. Clear client persistence

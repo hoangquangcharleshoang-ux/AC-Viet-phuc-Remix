@@ -172,13 +172,6 @@ export const CulturalQACard: React.FC<CulturalQACardProps> = ({
 
   const isRevisionLimitReached = revisionIndex >= 2;
 
-  // Auto-trigger QA on mount if idle and generationId exists (Requirement 1: Auto-QA architecture)
-  useEffect(() => {
-    if (qaState.status === 'idle' && generationId && onVerify) {
-      onVerify();
-    }
-  }, [qaState.status, generationId, onVerify]);
-
   return (
     <div className="rounded-3xl p-5 sm:p-6 bg-white/95 border border-stone-200/90 shadow-sm space-y-4 transition-all duration-300">
       {/* ------------------------------------------------------------------- */}

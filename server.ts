@@ -1407,9 +1407,19 @@ Trả về JSON cấu trúc đúng schema.`;
         required: ['traitEvaluations', 'outfitFidelity']
       };
 
+      const requestId = `qa_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      console.log(`[QA Correlation Trace] Invoked`, {
+        generationId,
+        boundFingerprint,
+        qaCacheKey,
+        requestId,
+        imageSizeBytes: imageRecord.bytes.length,
+        approxBase64KB: Math.round(imageRecord.bytes.length * 1.33 / 1024)
+      });
+
       const routeResult = await routeGeminiTask({
         task: 'VISUAL_QA',
-        requestId: `qa_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        requestId,
         isStillCurrent: () => !clientDisconnected && isTaskCurrent(),
         executeWithModel: async (modelId, isCanary, signal) => {
           if (!apiKey) {
@@ -1453,7 +1463,8 @@ Trả về JSON cấu trúc đúng schema.`;
             return agg;
           }
 
-          const response = await ai.models.generateContent({
+          const sdkStartTime = Date.now();
+          const sdkPromise = ai.models.generateContent({
             model: modelId,
             contents: [
               {
@@ -1478,21 +1489,60 @@ Trả về JSON cấu trúc đúng schema.`;
             }
           });
 
-          const parsed = JSON.parse(response.text?.trim() || '{}');
-          if (!parsed.traitEvaluations || !parsed.outfitFidelity) {
-            throw new Error('Malformed Visual QA structured response');
-          }
-
-          const agg = aggregateCulturalVisualQA(
-            garmentId,
-            parsed.traitEvaluations || [],
-            parsed.outfitFidelity || {},
-            generationId,
-            boundFingerprint
+          // Passive Ghost Execution Tracker (Section 2.2 - NO await, NO side-effects)
+          sdkPromise.then(
+            (res) => {
+              const elapsedMs = Date.now() - sdkStartTime;
+              console.log(`[Ghost Execution Tracker] Candidate SETTLED (RESOLVED)`, {
+                requestId,
+                modelId,
+                elapsedMs,
+                responseChars: res.text?.length || 0
+              });
+            },
+            (err: any) => {
+              const elapsedMs = Date.now() - sdkStartTime;
+              console.warn(`[Ghost Execution Tracker] Candidate SETTLED (REJECTED)`, {
+                requestId,
+                modelId,
+                elapsedMs,
+                errName: err?.name || 'Error',
+                errStatus: err?.status || err?.statusCode,
+                errCode: err?.code || err?.cause?.code,
+                errMessageSnippet: (err?.message || String(err)).slice(0, 150).replace(/\s+/g, ' ')
+              });
+            }
           );
-          const plan = buildGroundedCorrectionPlan(garmentId, agg, snapshot);
-          agg.groundedCorrectionPlan = plan;
-          return agg;
+
+          try {
+            const response = await sdkPromise;
+            const parsed = JSON.parse(response.text?.trim() || '{}');
+            if (!parsed.traitEvaluations || !parsed.outfitFidelity) {
+              throw new Error('Malformed Visual QA structured response');
+            }
+
+            const agg = aggregateCulturalVisualQA(
+              garmentId,
+              parsed.traitEvaluations || [],
+              parsed.outfitFidelity || {},
+              generationId,
+              boundFingerprint
+            );
+            const plan = buildGroundedCorrectionPlan(garmentId, agg, snapshot);
+            agg.groundedCorrectionPlan = plan;
+            return agg;
+          } catch (sdkErr: any) {
+            console.error(`[VisualQA Sanitized SDK Error]`, {
+              requestId,
+              modelId,
+              errName: sdkErr?.name,
+              errStatus: sdkErr?.status || sdkErr?.statusCode,
+              errCode: sdkErr?.code,
+              causeCode: sdkErr?.cause?.code,
+              errMessageSnippet: (sdkErr?.message || String(sdkErr)).slice(0, 200).replace(/\s+/g, ' ')
+            });
+            throw sdkErr;
+          }
         }
       });
 

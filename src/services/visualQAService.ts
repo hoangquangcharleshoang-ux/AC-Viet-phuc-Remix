@@ -69,6 +69,27 @@ export async function verifyLookbookImage(
         signal
       });
 
+      const contentType = res.headers.get('content-type') || '';
+      const isJson = contentType.includes('application/json');
+
+      if (!isJson) {
+        const bodyText = await res.text().catch(() => '');
+        console.warn('[VisualQA Client Diagnostic] Non-JSON Response Encountered:', {
+          method: 'POST',
+          requestUrl: '/api/verify-lookbook',
+          responseUrl: res.url,
+          redirected: res.redirected,
+          status: res.status,
+          statusText: res.statusText,
+          contentType,
+          bodySnippet: bodyText.slice(0, 150).replace(/\s+/g, ' ')
+        });
+
+        const code = res.status === 504 ? 'GATEWAY_TIMEOUT' : 'NON_JSON_RESPONSE';
+        const message = `Phản hồi máy chủ không đúng định dạng JSON (${res.status}).`;
+        throw new VisualQAError(code, message, res.status, true);
+      }
+
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
         const code = errJson.code || (res.status === 410 ? 'EPHEMERAL_IMAGE_EXPIRED' : res.status === 409 ? 'FINGERPRINT_MISMATCH' : 'VISUAL_QA_ERROR');
