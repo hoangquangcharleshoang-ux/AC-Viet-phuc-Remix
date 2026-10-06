@@ -615,19 +615,21 @@ export function buildGroundedCorrectionPlan(
     specMap.set(s.traitId, s);
   }
 
-  // 1. Cultural Correction Deltas (FAIL or PARTIAL traits with direct visual evidence)
+  // 1. Cultural Correction Deltas (FAIL or PARTIAL traits for essential & strongly_characteristic categories)
   const culturalDeltas: GroundedCorrectionPlan['culturalDeltas'] = [];
   for (const trait of qaOutput.culturalIdentity.traits) {
     if (trait.verdict === 'FAIL' || trait.verdict === 'PARTIAL') {
       const spec = specMap.get(trait.traitId);
-      culturalDeltas.push({
-        traitId: trait.traitId,
-        traitNameVi: trait.traitNameVi,
-        category: trait.category,
-        verdict: trait.verdict,
-        observedDeviation: trait.observedDeviation || trait.visualEvidence,
-        canonicalGuidance: spec ? spec.canonicalGuidance : `Khôi phục chuẩn mực đặc trưng ${trait.traitNameVi}.`
-      });
+      if (spec && (spec.category === 'essential' || spec.category === 'strongly_characteristic')) {
+        culturalDeltas.push({
+          traitId: trait.traitId,
+          traitNameVi: trait.traitNameVi,
+          category: trait.category,
+          verdict: trait.verdict,
+          observedDeviation: trait.observedDeviation || trait.visualEvidence,
+          canonicalGuidance: spec ? spec.canonicalGuidance : `Khôi phục chuẩn mực đặc trưng ${trait.traitNameVi}.`
+        });
+      }
     }
   }
 
