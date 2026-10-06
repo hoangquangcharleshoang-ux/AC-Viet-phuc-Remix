@@ -503,4 +503,16 @@ export type VisualQAState =
   | { status: 'success'; generationId: string; result: CulturalVisualQAOutput }
   | { status: 'error'; generationId: string; code: string; message: string; retryable?: boolean };
 
+export type ExplorationIntent = 'MORE_TRADITIONAL' | 'MORE_REMIXED' | 'ALTERNATIVE';
+
+export interface ExplorationBlueprintResult {
+  explorationId: string;
+  explorationIntent: ExplorationIntent;
+  parentBlueprintFingerprint: string;
+  resultingOutfitFingerprint: string;
+  blueprint: BlueprintOutput;
+  stylingRationale: string;
+  changesRelativeToOriginal: string;
+}
+
 

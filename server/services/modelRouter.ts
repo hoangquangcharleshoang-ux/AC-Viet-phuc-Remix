@@ -206,10 +206,11 @@ export async function routeGeminiTask<T>(options: RouteTaskOptions<T>): Promise<
     }
 
     const remainingCandidatesAfterThis = pool.length - (i + 1);
-    // Reserve budget for remaining candidates (up to 40% of remaining budget or 2s per candidate)
+    // Reserve budget for remaining candidates (dedicated reserve for Blueprint fallbacks)
+    const reservePerCandidate = task === 'BLUEPRINT' ? 3000 : 2000;
     const fallbackReserveMs =
       remainingCandidatesAfterThis > 0
-        ? Math.min(remainingBudget * 0.4, remainingCandidatesAfterThis * 2000)
+        ? Math.min(remainingBudget * 0.35, remainingCandidatesAfterThis * reservePerCandidate)
         : 0;
 
     // Strict rawAvailable calculation: DO NOT artificially inflate to minCandidateTimeoutMs,

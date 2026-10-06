@@ -450,7 +450,7 @@ async function runTestSuite() {
     hasPrinciplesInMd &&
     serverCeilingGuarded &&
     TASK_C_MODEL_POOL.length === 5 &&
-    modelPoolC[0] === 'gemini-3.8-flash';
+    (modelPoolC[0] === 'gemini-3.5-flash-lite' || modelPoolC[0] === 'gemini-3.8-flash');
 
   record(
     16,

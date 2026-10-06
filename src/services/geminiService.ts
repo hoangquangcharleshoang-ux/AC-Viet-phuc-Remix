@@ -13,7 +13,9 @@ import {
   DossierData,
   CuratedOption,
   GarmentRecommendationOutput,
-  BlueprintOutput
+  BlueprintOutput,
+  ExplorationIntent,
+  ExplorationBlueprintResult
 } from '../types/index';
 import {
   GARMENTS,
@@ -672,6 +674,27 @@ export async function generateBlueprint(input: {
 
       console.log('[BlueprintClient] FETCH_RESOLVED', { cacheKey, status: res.status });
 
+      const contentType = res.headers.get('content-type') || '';
+      const isJson = contentType.includes('application/json');
+
+      if (!isJson) {
+        const bodyText = await res.text().catch(() => '');
+        console.warn('[BlueprintClient Diagnostic] Non-JSON Response Encountered:', {
+          method: 'POST',
+          requestUrl: '/api/generate-blueprint',
+          responseUrl: res.url,
+          redirected: res.redirected,
+          status: res.status,
+          statusText: res.statusText,
+          contentType,
+          bodySnippet: bodyText.slice(0, 150).replace(/\s+/g, ' ')
+        });
+
+        const code = res.status === 504 ? 'GATEWAY_TIMEOUT' : 'NON_JSON_RESPONSE';
+        const message = `Phản hồi máy chủ không đúng định dạng JSON (${res.status}).`;
+        throw new ApiError(code, message, true, res.status);
+      }
+
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
         const code = errJson.code || (res.status === 429 ? 'GEMINI_QUOTA_EXHAUSTED' : res.status === 503 ? 'GEMINI_TEMPORARILY_UNAVAILABLE' : 'API_ERROR');
@@ -695,3 +718,60 @@ export async function generateBlueprint(input: {
     input.signal
   );
 }
+
+const sessionExplorationCache = new Map<string, ExplorationBlueprintResult>();
+
+export async function generateExplorationBlueprint(input: {
+  selectedGarmentId: GarmentId;
+  parentBlueprint: BlueprintOutput;
+  explorationIntent: ExplorationIntent;
+  context: {
+    promptText: string;
+    selectedOccasion: string;
+    selectedStyle: string;
+    traditionalRatio: number;
+    genderPresentation?: string;
+  };
+  signal?: AbortSignal;
+}): Promise<ExplorationBlueprintResult> {
+  const cacheKey = [
+    input.selectedGarmentId,
+    input.explorationIntent,
+    JSON.stringify(input.parentBlueprint),
+    input.context.promptText.trim().toLowerCase(),
+    input.context.selectedOccasion,
+    input.context.selectedStyle,
+    input.context.traditionalRatio,
+    input.context.genderPresentation || 'nam'
+  ].join('|');
+
+  if (sessionExplorationCache.has(cacheKey)) {
+    return sessionExplorationCache.get(cacheKey)!;
+  }
+
+  const res = await fetch('/api/generate-exploration', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+    signal: input.signal
+  });
+
+  if (!res.ok) {
+    const errJson = await res.json().catch(() => ({}));
+    throw new ApiError(
+      errJson.code || 'EXPLORATION_FAILED',
+      errJson.message || 'Không thể tạo hướng phối khám phá lúc này.',
+      false,
+      res.status
+    );
+  }
+
+  const data: ExplorationBlueprintResult = await res.json();
+  sessionExplorationCache.set(cacheKey, data);
+  return data;
+}
+
+export function clearExplorationCache() {
+  sessionExplorationCache.clear();
+}
+

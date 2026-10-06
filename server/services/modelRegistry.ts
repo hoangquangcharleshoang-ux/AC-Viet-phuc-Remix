@@ -25,39 +25,51 @@ export const TASK_A_MODEL_POOL = [
   'gemini-3.5-flash'
 ] as const;
 
+const ROUTER_PROFILE = process.env.ROUTER_PROFILE || 'dev-lite';
+
 /**
  * CALL B — BLUEPRINT GENERATION MODEL POOL
  * Order of preference:
- * 1. gemini-3.8-flash (primary deep-reasoning fashion designer)
- * 2. gemini-3.7-flash (secondary deep-reasoning fallback)
- * 3. gemini-3.6-flash (tertiary structured output fallback)
- * 4. gemini-3.5-flash (general flash fallback)
- * 5. gemini-3.5-flash-lite (high-availability final candidate)
+ * - dev-lite profile: gemini-3.5-flash-lite first for quota efficiency, followed by strong models.
+ * - quality profile: gemini-3.8-flash first.
  */
-export const TASK_B_MODEL_POOL = [
-  'gemini-3.8-flash',
-  'gemini-3.7-flash',
-  'gemini-3.6-flash',
-  'gemini-3.5-flash',
-  'gemini-3.5-flash-lite'
-] as const;
+export const TASK_B_MODEL_POOL = ROUTER_PROFILE === 'quality'
+  ? [
+      'gemini-3.8-flash',
+      'gemini-3.7-flash',
+      'gemini-3.6-flash',
+      'gemini-3.5-flash',
+      'gemini-3.5-flash-lite'
+    ] as const
+  : [
+      'gemini-3.5-flash-lite',
+      'gemini-3.8-flash',
+      'gemini-3.7-flash',
+      'gemini-3.6-flash',
+      'gemini-3.5-flash'
+    ] as const;
 
 /**
  * CALL C — CULTURAL VISUAL QA MODEL POOL
  * Order of preference:
- * 1. gemini-3.8-flash (primary multimodal visual perception & cultural evidence extractor)
- * 2. gemini-3.7-flash (secondary multimodal fallback)
- * 3. gemini-3.6-flash (tertiary multimodal fallback)
- * 4. gemini-3.5-flash (general flash multimodal fallback)
- * 5. gemini-3.5-flash-lite (high-availability multimodal candidate)
+ * - dev-lite profile: gemini-3.5-flash-lite first, followed by strong models.
+ * - quality profile: gemini-3.8-flash first.
  */
-export const TASK_C_MODEL_POOL = [
-  'gemini-3.8-flash',
-  'gemini-3.7-flash',
-  'gemini-3.6-flash',
-  'gemini-3.5-flash',
-  'gemini-3.5-flash-lite'
-] as const;
+export const TASK_C_MODEL_POOL = ROUTER_PROFILE === 'quality'
+  ? [
+      'gemini-3.8-flash',
+      'gemini-3.7-flash',
+      'gemini-3.6-flash',
+      'gemini-3.5-flash',
+      'gemini-3.5-flash-lite'
+    ] as const
+  : [
+      'gemini-3.5-flash-lite',
+      'gemini-3.8-flash',
+      'gemini-3.7-flash',
+      'gemini-3.6-flash',
+      'gemini-3.5-flash'
+    ] as const;
 
 export type TaskAModelId = (typeof TASK_A_MODEL_POOL)[number];
 export type TaskBModelId = (typeof TASK_B_MODEL_POOL)[number];

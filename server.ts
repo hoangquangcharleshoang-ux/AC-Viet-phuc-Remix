@@ -16,6 +16,13 @@ const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use(express.json());
+
+// API Response Isolation & Marker Middleware
+app.use('/api', (req, res, next) => {
+  res.setHeader('X-AC-API-Response', '1');
+  next();
+});
+
 app.use(express.static(path.resolve(__dirname, 'public')));
 
 // Initialize GoogleGenAI client (user-agent 'aistudio-build' is mandatory)
@@ -953,6 +960,150 @@ BẮT BUỘC trả về JSON theo schema.`;
     const retryable = error?.retryable ?? true;
     console.error('Error in /api/generate-blueprint:', code, error?.message || error);
     return res.status(status).json({ status, code, message, retryable });
+  }
+});
+
+/**
+ * PHASE 2D: GUIDED EXPLORATION BLUEPRINT GENERATION
+ * Endpoint: POST /api/generate-exploration
+ */
+app.post('/api/generate-exploration', async (req, res) => {
+  const { selectedGarmentId, parentBlueprint, explorationIntent, context } = req.body;
+  if (!selectedGarmentId || !parentBlueprint || !explorationIntent) {
+    return res.status(400).json({ code: 'INVALID_EXPLORATION_REQUEST', message: 'Thiếu thông tin yêu cầu khám phá.' });
+  }
+
+  if (!apiKey) {
+    return res.status(500).json({
+      status: 500,
+      code: 'GEMINI_INFERENCE_ERROR',
+      message: 'GEMINI_API_KEY chưa được cấu hình trong môi trường server.',
+      retryable: false
+    });
+  }
+
+  try {
+    const result = await routeGeminiTask({
+      task: 'BLUEPRINT',
+      requestId: `exp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      executeWithModel: async (modelId) => {
+        const catalogContext = {
+          PALETTES: PALETTES.map(p => ({ id: p.id, hex: p.hex, name: p.name })),
+          FABRICS: FABRICS.map(f => ({ id: f.id, label: f.label })),
+          LOWER_GARMENTS: LOWER_GARMENTS.map(l => ({ id: l.id, label: l.label })),
+          FOOTWEAR: FOOTWEAR.map(f => ({ id: f.id, label: f.label })),
+          ACCESSORIES: ACCESSORIES.map(a => ({ id: a.id, label: a.label }))
+        };
+
+        const systemInstruction = `Bạn là Trợ lý Khám phá Phong cách (Exploration Co-pilot) của hệ thống AC (AI Arena Vietnam 2026).
+Nhiệm vụ: Tạo một biến thể bản phối thời trang đương đại dựa trên Bản phối gốc của dáng áo "${selectedGarmentId}" với hướng khám phá: "${explorationIntent}".
+- MORE_TRADITIONAL: Gần truyền thống hơn, bảo toàn nhận diện cốt lõi, tăng cường tính nhận diện canonical, giảm bớt remix thừa thãi.
+- MORE_REMIXED: Biến tấu hơn, bảo toàn hoàn toàn đặc điểm nhận diện cốt lõi (essential traits), cho phép biến tấu đương đại mạnh mẽ hơn ở bảng màu, chất liệu, lớp lang, giày dép và phụ kiện.
+- ALTERNATIVE: Khám phá phối khác, tạo ra phương án phối mới mẻ, khác biệt ý nghĩa so với bản gốc nhưng vẫn tương thích văn hóa.
+
+BẮT BUỘC chỉ chọn các Canonical ID từ danh mục Catalog được cung cấp:
+${JSON.stringify(catalogContext, null, 2)}
+
+Trả về JSON theo schema yêu cầu gồm:
+1. blueprint (gồm palette, fabricId, lowerGarmentId, footwearId, accessoryIds, contextCautions)
+2. stylingRationale (câu lý giải ngắn gọn bằng tiếng Việt)
+3. changesRelativeToOriginal (câu mô tả điểm thay đổi cốt lõi so với bản gốc bằng tiếng Việt)`;
+
+        const userContent = JSON.stringify({
+          selectedGarmentId,
+          explorationIntent,
+          parentBlueprint,
+          context: context || {}
+        });
+
+        const explorationSchema = {
+          type: Type.OBJECT,
+          properties: {
+            blueprint: {
+              type: Type.OBJECT,
+              properties: {
+                garmentId: { type: Type.STRING, enum: ['ngu_than_chen', 'ao_tac', 'ao_tu_than'] },
+                remixProposal: {
+                  type: Type.OBJECT,
+                  properties: {
+                    palette: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          id: { type: Type.STRING },
+                          hex: { type: Type.STRING },
+                          name: { type: Type.STRING },
+                          role: { type: Type.STRING, enum: ['PRIMARY', 'SUPPORTING', 'ACCENT'] },
+                          origin: { type: Type.STRING, enum: ['USER_REQUESTED', 'AC_SUGGESTED'] }
+                        },
+                        required: ['id', 'hex', 'name', 'role']
+                      }
+                    },
+                    fabricId: { type: Type.STRING },
+                    lowerGarmentId: { type: Type.STRING },
+                    footwearId: { type: Type.STRING },
+                    accessoryIds: { type: Type.ARRAY, items: { type: Type.STRING } }
+                  },
+                  required: ['palette', 'fabricId', 'lowerGarmentId', 'footwearId', 'accessoryIds']
+                },
+                contextCautions: { type: Type.ARRAY, items: { type: Type.STRING } }
+              },
+              required: ['garmentId', 'remixProposal', 'contextCautions']
+            },
+            stylingRationale: { type: Type.STRING },
+            changesRelativeToOriginal: { type: Type.STRING }
+          },
+          required: ['blueprint', 'stylingRationale', 'changesRelativeToOriginal']
+        };
+
+        const response = await ai.models.generateContent({
+          model: modelId,
+          contents: userContent,
+          config: {
+            systemInstruction,
+            responseMimeType: 'application/json',
+            responseSchema: explorationSchema
+          }
+        });
+
+        const parsed = JSON.parse(response.text?.trim() || '{}');
+        if (!parsed.blueprint || !parsed.blueprint.remixProposal) {
+          throw new Error('Invalid exploration blueprint response schema');
+        }
+
+        const sanitizedBp = sanitizeBlueprintOutput(selectedGarmentId, parsed.blueprint, context?.promptText || '');
+        const resultingFingerprint = computeOutfitFingerprint({
+          garmentId: selectedGarmentId,
+          palette: sanitizedBp.remixProposal.palette,
+          fabricId: sanitizedBp.remixProposal.fabricId,
+          lowerGarmentId: sanitizedBp.remixProposal.lowerGarmentId,
+          footwearId: sanitizedBp.remixProposal.footwearId,
+          accessoryIds: sanitizedBp.remixProposal.accessoryIds,
+          occasion: context?.selectedOccasion,
+          style: context?.selectedStyle,
+          traditionalRatio: context?.traditionalRatio
+        });
+
+        return {
+          explorationId: `exp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+          explorationIntent,
+          parentBlueprintFingerprint: parentBlueprint.outfitFingerprint || 'parent_fp',
+          resultingOutfitFingerprint: resultingFingerprint,
+          blueprint: sanitizedBp,
+          stylingRationale: parsed.stylingRationale || 'Gợi ý phối đồ theo hướng khám phá mới.',
+          changesRelativeToOriginal: parsed.changesRelativeToOriginal || 'Điều chỉnh bảng màu và phụ kiện so với bản gốc.'
+        };
+      }
+    });
+
+    return res.status(200).json(result.result);
+  } catch (err: any) {
+    console.error('Error in /api/generate-exploration:', err);
+    return res.status(503).json({
+      code: 'EXPLORATION_GENERATION_FAILED',
+      message: err?.message || 'Không thể tạo hướng phối khám phá lúc này. Vui lòng thử lại sau.'
+    });
   }
 });
 

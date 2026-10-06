@@ -79,11 +79,12 @@ export async function verifyLookbookImage(
       });
 
       const contentType = res.headers.get('content-type') || '';
+      const xAcApiResponse = res.headers.get('x-ac-api-response') || '0';
       const isJson = contentType.includes('application/json');
 
-      if (!isJson) {
+      if (!isJson || xAcApiResponse !== '1') {
         const bodyText = await res.text().catch(() => '');
-        console.warn('[VisualQA Client Diagnostic] Non-JSON Response Encountered:', {
+        console.warn('[VisualQA Client Diagnostic] Non-JSON or Non-API Response Encountered:', {
           method: 'POST',
           requestUrl: '/api/verify-lookbook',
           responseUrl: res.url,
@@ -91,6 +92,7 @@ export async function verifyLookbookImage(
           status: res.status,
           statusText: res.statusText,
           contentType,
+          xAcApiResponse,
           bodySnippet: bodyText.slice(0, 150).replace(/\s+/g, ' ')
         });
 
@@ -102,7 +104,7 @@ export async function verifyLookbookImage(
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
         const code = errJson.code || (res.status === 410 ? 'EPHEMERAL_IMAGE_EXPIRED' : res.status === 409 ? 'FINGERPRINT_MISMATCH' : 'VISUAL_QA_ERROR');
-        const message = errJson.message || `Lỗi kiểm định thị giác (${res.status})`;
+        const message = errJson.message || `Lỗi đánh giá bản phối (${res.status})`;
         const retryable = res.status !== 410 && res.status !== 409;
         throw new VisualQAError(code, message, res.status, retryable);
       }

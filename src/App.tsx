@@ -24,15 +24,21 @@ import { HeroHomepage } from './components/HeroHomepage';
 import { Section1Recommendation } from './components/Section1Recommendation';
 import { Section2Blueprint } from './components/Section2Blueprint';
 import { Section3Lookbook } from './components/Section3Lookbook';
+import { Section4Exploration } from './components/Section4Exploration';
 import { ResetConfirmModal } from './components/ResetConfirmModal';
 import {
   recommendGarment,
   generateBlueprint,
+  generateExplorationBlueprint,
   primeSessionBlueprintCache,
   getAllSessionBlueprintEntries,
   primeSessionRecommendationCache,
   clearSessionCaches
 } from './services/geminiService';
+import {
+  ExplorationIntent,
+  ExplorationBlueprintResult
+} from './types';
 import { requestLookbookGeneration } from './services/lookbookService';
 import {
   loadPersistedSession,
@@ -104,8 +110,66 @@ export default function App() {
   const [activeRevisions, setActiveRevisions] = useState<LookbookRevisionItem[]>([]);
   const activeVisualQAAbortControllerRef = useRef<AbortController | null>(null);
   const activeVisualQAGenerationIdRef = useRef<string>('');
+  const attemptedVisualQARef = useRef<Set<string>>(new Set());
   const hydratedQARecoveredRef = useRef<Set<string>>(new Set());
   const hydratedFromPersistenceGenIdRef = useRef<string | null>(null);
+
+  // Phase 2D: Guided Exploration State
+  const [explorationResults, setExplorationResults] = useState<Record<ExplorationIntent, ExplorationBlueprintResult | null>>({
+    MORE_TRADITIONAL: null,
+    MORE_REMIXED: null,
+    ALTERNATIVE: null
+  });
+  const [isExploring, setIsExploring] = useState<Record<ExplorationIntent, boolean>>({
+    MORE_TRADITIONAL: false,
+    MORE_REMIXED: false,
+    ALTERNATIVE: false
+  });
+
+  const handleTriggerExploration = async (intent: ExplorationIntent) => {
+    if (!blueprint) return;
+    setIsExploring(prev => ({ ...prev, [intent]: true }));
+    try {
+      const expResult = await generateExplorationBlueprint({
+        selectedGarmentId,
+        parentBlueprint: blueprint,
+        explorationIntent: intent,
+        context: {
+          promptText: activeParams.promptText,
+          selectedOccasion: activeParams.selectedOccasion,
+          selectedStyle: activeParams.selectedStyle,
+          traditionalRatio: activeParams.traditionalRatio,
+          genderPresentation: activeParams.genderPresentation
+        }
+      });
+      setExplorationResults(prev => ({ ...prev, [intent]: expResult }));
+    } catch (err) {
+      console.error(`[Exploration] Failed for intent ${intent}:`, err);
+    } finally {
+      setIsExploring(prev => ({ ...prev, [intent]: false }));
+    }
+  };
+
+  const handleVisualizeExploration = async (expResult: ExplorationBlueprintResult) => {
+    setBlueprint(expResult.blueprint);
+    await handleGenerateLookbook({
+      garmentId: selectedGarmentId,
+      remixProposal: expResult.blueprint.remixProposal,
+      context: {
+        occasion: activeParams.selectedOccasion,
+        style: activeParams.selectedStyle,
+        traditionalRatio: activeParams.traditionalRatio
+      },
+      outfitFingerprint: expResult.resultingOutfitFingerprint,
+      genderPresentation: activeParams.genderPresentation || 'nam',
+      revisionIndex: 0,
+      parentGenerationId: undefined
+    }, true);
+
+    setTimeout(() => {
+      document.getElementById('section-lookbook')?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  };
 
   // Stale-response protection refs
   const activeBlueprintRequestIdRef = useRef<number>(0);
@@ -448,6 +512,11 @@ export default function App() {
     // Reset downstream visualization/QA state on committed context change
     setLookbookState({ status: 'idle' });
     setVisualQAState({ status: 'idle' });
+    setExplorationResults({
+      MORE_TRADITIONAL: null,
+      MORE_REMIXED: null,
+      ALTERNATIVE: null
+    });
     setIsRecommending(true);
 
     try {
@@ -641,6 +710,16 @@ export default function App() {
       return;
     }
 
+    const qaIdentityKey = `${targetGenId}_${targetBoundFp}`;
+    if (overrideGenId && overrideFp) {
+      attemptedVisualQARef.current.delete(qaIdentityKey);
+    }
+    if (!overrideGenId && attemptedVisualQARef.current.has(qaIdentityKey)) {
+      console.log('[VisualQA] Skipped duplicate automatic QA attempt for already-attempted identity:', qaIdentityKey);
+      return;
+    }
+    attemptedVisualQARef.current.add(qaIdentityKey);
+
     // In-flight & Completion Guard: Avoid redundant calls if already loading for the same targetGenId
     if (
       !overrideGenId &&
@@ -700,7 +779,7 @@ export default function App() {
         status: 'error',
         generationId: targetGenId,
         code: err.code || 'VISUAL_QA_FAILED',
-        message: err.message || 'Không thể hoàn tất thẩm định thị giác lúc này. Vui lòng thử lại sau.',
+        message: err.message || 'Không thể hoàn tất đánh giá bản phối lúc này. Vui lòng thử lại sau.',
         retryable: err.retryable ?? true
       });
     } finally {
@@ -882,6 +961,11 @@ export default function App() {
     setBlueprint(null);
     setLookbookState({ status: 'idle' });
     setVisualQAState({ status: 'idle' });
+    setExplorationResults({
+      MORE_TRADITIONAL: null,
+      MORE_REMIXED: null,
+      ALTERNATIVE: null
+    });
     setSelectedGarmentId('ngu_than_chen');
     activeGarmentIdRef.current = 'ngu_than_chen';
     setApiError(null);
@@ -1079,6 +1163,19 @@ export default function App() {
             onActiveAccessoriesChange={handleActiveAccessoriesChange}
             onFingerprintChange={setCurrentOutfitFingerprint}
             onGenerateLookbook={payload => handleGenerateLookbook(payload, false)}
+          />
+        )}
+
+        {/* Phase 2D: Section 4 — Guided Exploration */}
+        {recommendation && blueprint && (
+          <Section4Exploration
+            blueprint={blueprint}
+            selectedGarmentId={selectedGarmentId}
+            explorationResults={explorationResults}
+            isExploring={isExploring}
+            onTriggerExploration={handleTriggerExploration}
+            onVisualizeExploration={handleVisualizeExploration}
+            isGeneratingLookbook={lookbookState.status === 'generating'}
           />
         )}
 

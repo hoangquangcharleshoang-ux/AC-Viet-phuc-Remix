@@ -4,6 +4,7 @@
  */
 
 import { ClassifiedGeminiError, ROUTER_CONFIG } from './geminiErrorClassifier';
+import { loadQuotaBlocks, saveQuotaBlock, isModelQuotaBlocked } from './quotaQuarantine';
 
 export type CircuitState = 'AVAILABLE' | 'COOLDOWN' | 'HALF_OPEN';
 
@@ -55,6 +56,17 @@ export class ModelCircuitBreaker {
 
     if (state.disabledForRuntime) {
       return 'SKIP_DISABLED';
+    }
+
+    // Check persistent quota quarantine first
+    if (isModelQuotaBlocked(modelId)) {
+      const blocks = loadQuotaBlocks();
+      const rec = blocks[modelId];
+      if (rec && now < rec.blockedUntil) {
+        state.status = 'COOLDOWN';
+        state.cooldownUntil = rec.blockedUntil;
+        return 'SKIP_COOLDOWN';
+      }
     }
 
     // Check Cooldown expiration
@@ -120,6 +132,23 @@ export class ModelCircuitBreaker {
       state.status = 'COOLDOWN';
       state.cooldownUntil = Infinity;
       return;
+    }
+
+    if (classified.category === 'MODEL_SCOPED_QUOTA') {
+      const providerDelayMs = classified.providerRetryAfterSeconds
+        ? classified.providerRetryAfterSeconds * 1000
+        : classified.suggestedCooldownMs;
+      const blockedUntil = now + providerDelayMs;
+      saveQuotaBlock({
+        modelId,
+        blockedUntil,
+        quotaMetric: classified.quotaDiagnostics?.quotaMetric,
+        quotaId: classified.quotaDiagnostics?.quotaId,
+        quotaValue: classified.quotaDiagnostics?.quotaValue,
+        dimensions: classified.quotaDiagnostics?.dimensions,
+        retryAfterSeconds: classified.providerRetryAfterSeconds,
+        updatedAt: new Date().toISOString()
+      });
     }
 
     // Provider delay vs Local backoff calculation (Requirement 8)

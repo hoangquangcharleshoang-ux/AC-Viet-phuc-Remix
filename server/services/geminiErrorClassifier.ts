@@ -27,6 +27,7 @@ export interface StructuredQuotaDiagnostics {
   quotaMetric?: string;
   quotaId?: string;
   quotaValue?: string;
+  dimensions?: Record<string, string>;
   subject?: string;
   retryDelayStr?: string;
   providerRetryAfterSeconds?: number;
@@ -54,10 +55,10 @@ export const ROUTER_CONFIG = {
   baseLocalBackoffMs: 30 * 1000, // 30s base backoff (30s -> 60s -> 120s -> 240s -> 300s max)
   maxLocalBackoffMs: 300 * 1000, // 300s max local backoff
   callADeadlineMs: 10 * 1000, // 10s overall route deadline for Call A
-  callBDeadlineMs: 20 * 1000, // 20s overall route deadline for Call B
+  callBDeadlineMs: 16 * 1000, // 16s overall route deadline for Call B (safely below external transport ceiling)
   callCDeadlineMs: 28 * 1000, // 28s overall route deadline for Call C (VISUAL_QA)
   callACandidateTimeoutCapMs: 4 * 1000, // 4s candidate timeout cap for Call A
-  callBCandidateTimeoutCapMs: 7 * 1000, // 7s candidate timeout cap for Call B
+  callBCandidateTimeoutCapMs: 4 * 1000, // 4s candidate timeout cap for Call B
   callCCandidateTimeoutCapMs: 6 * 1000, // 6s candidate timeout cap for Call C (VISUAL_QA)
   minCandidateTimeoutMs: 1500, // 1.5s minimum budget required to start a candidate
   routeDeadlineSafetyMarginMs: 250, // 250ms internal safety margin between candidate timeout and global route deadline

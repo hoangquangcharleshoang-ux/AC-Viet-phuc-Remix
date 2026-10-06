@@ -37,7 +37,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {isEvaluating && (
             <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-50/90 text-amber-800 border border-amber-200 animate-pulse">
               <Sparkles className="w-3 h-3 animate-spin text-amber-600" />
-              <span>Đang kiểm định...</span>
+              <span>Đang đánh giá bản phối...</span>
             </span>
           )}
 

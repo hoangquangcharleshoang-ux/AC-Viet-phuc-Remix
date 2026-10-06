@@ -1,0 +1,14 @@
+{
+  "gemini-3.8-flash": {
+    "modelId": "gemini-3.8-flash",
+    "blockedUntil": 1791301779036,
+    "quotaMetric": "generate_content_requests",
+    "quotaId": "RequestsPerDay",
+    "quotaValue": "1500",
+    "dimensions": {
+      "model": "gemini-3.8-flash"
+    },
+    "retryAfterSeconds": 120,
+    "updatedAt": "2026-10-06T15:47:39.036Z"
+  }
+}
