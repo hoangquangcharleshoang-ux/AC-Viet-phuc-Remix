@@ -18,6 +18,7 @@ export interface FingerprintInput {
   occasion?: string;
   style?: string;
   traditionalRatio?: number;
+  genderPresentation?: string;
 }
 
 export function computeOutfitFingerprint(input: FingerprintInput): string {
@@ -28,8 +29,9 @@ export function computeOutfitFingerprint(input: FingerprintInput): string {
   const occ = input.occasion || '';
   const sty = input.style || '';
   const ratio = typeof input.traditionalRatio === 'number' ? input.traditionalRatio : '';
+  const gender = input.genderPresentation || 'nam';
 
-  const payload = `${input.garmentId}|${occ}|${sty}|${ratio}|${paletteKey}|${input.fabricId}|${input.lowerGarmentId}|${input.footwearId}|${accStr}`;
+  const payload = `${input.garmentId}|${occ}|${sty}|${ratio}|${gender}|${paletteKey}|${input.fabricId}|${input.lowerGarmentId}|${input.footwearId}|${accStr}`;
 
   let hashVal = 5381;
   for (let i = 0; i < payload.length; i++) {

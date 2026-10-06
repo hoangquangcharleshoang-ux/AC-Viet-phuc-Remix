@@ -55,8 +55,10 @@ export const ROUTER_CONFIG = {
   maxLocalBackoffMs: 300 * 1000, // 300s max local backoff
   callADeadlineMs: 10 * 1000, // 10s overall route deadline for Call A
   callBDeadlineMs: 20 * 1000, // 20s overall route deadline for Call B
+  callCDeadlineMs: 28 * 1000, // 28s overall route deadline for Call C (VISUAL_QA)
   callACandidateTimeoutCapMs: 4 * 1000, // 4s candidate timeout cap for Call A
   callBCandidateTimeoutCapMs: 7 * 1000, // 7s candidate timeout cap for Call B
+  callCCandidateTimeoutCapMs: 6 * 1000, // 6s candidate timeout cap for Call C (VISUAL_QA)
   minCandidateTimeoutMs: 1500, // 1.5s minimum budget required to start a candidate
   routeDeadlineSafetyMarginMs: 250, // 250ms internal safety margin between candidate timeout and global route deadline
   schemaRepairAttempts: 1 // max 1 repair attempt on schema/malformed JSON

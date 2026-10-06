@@ -226,7 +226,7 @@ export const Section3Lookbook: React.FC<Section3LookbookProps> = ({
                 className="mt-2 rounded-full px-6 py-2.5 text-xs font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm flex items-center gap-2 cursor-pointer"
               >
                 <RotateCw className="w-3.5 h-3.5" />
-                <span>Tạo lại ảnh minh họa</span>
+                <span>Tạo phương án khác</span>
               </button>
             )}
           </div>
@@ -340,10 +340,10 @@ export const Section3Lookbook: React.FC<Section3LookbookProps> = ({
                       key={rev.generationId}
                       type="button"
                       onClick={() => onSelectRevision && onSelectRevision(rev.revisionIndex)}
-                      className={`px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all cursor-pointer ${
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                         isSelected
-                          ? 'bg-stone-900 text-white shadow-2xs'
-                          : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60'
+                          ? 'bg-indigo-600 text-white shadow-2xs'
+                          : 'text-stone-600 hover:text-stone-900 hover:bg-stone-200/60 font-medium'
                       }`}
                     >
                       {label}
@@ -353,19 +353,19 @@ export const Section3Lookbook: React.FC<Section3LookbookProps> = ({
               </div>
             )}
 
-            {/* 2-Column Grid: Left Image Stage (7 cols) | Right Details Panel (5 cols) */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+            {/* 2-Column Grid: Left Image Stage (6 cols) | Right Details Panel (6 cols) */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
               {/* LEFT: IMAGE STAGE */}
-              <div className="lg:col-span-7 flex flex-col items-center space-y-4">
+              <div className="lg:col-span-6 flex flex-col items-center space-y-3">
                 {/* Lookbook Canvas Card with Warm Neutral Background */}
                 <div
-                  className="relative w-full max-h-[70vh] sm:max-h-[640px] md:max-h-[720px] aspect-[2/3] rounded-3xl overflow-hidden bg-[#F8F6F0] border border-stone-200/85 shadow-sm flex items-center justify-center group"
+                  className="relative w-full max-w-md mx-auto aspect-[3/4] rounded-3xl overflow-hidden bg-[#F8F6F0] border border-stone-200/85 shadow-sm flex items-center justify-center group"
                 >
                   <img
                     src={displayImageUrl}
                     alt={`Ảnh minh họa bản phối ${garment.canonical_name}`}
                     onError={handleImageError}
-                    className={`w-full h-full object-contain object-center transition-all duration-300 ${
+                    className={`w-full h-full object-cover object-top transition-all duration-300 ${
                       isDisplayStale ? 'opacity-85' : 'opacity-100'
                     } ${isGenerating ? 'opacity-50 blur-[1px]' : ''}`}
                     loading="eager"
@@ -373,7 +373,7 @@ export const Section3Lookbook: React.FC<Section3LookbookProps> = ({
 
                   {/* Dimension / Orientation Subtle Tag */}
                   <div className="absolute top-3.5 left-3.5 px-2.5 py-1 rounded-full text-[10px] font-medium bg-stone-900/60 text-white/90 backdrop-blur-md border border-white/10 shadow-xs pointer-events-none">
-                    1024 × 1536 · Dọc
+                    Tỷ lệ 3:4 · Lookbook
                   </div>
 
                   {/* Stale Overlay Badge */}
@@ -396,7 +396,7 @@ export const Section3Lookbook: React.FC<Section3LookbookProps> = ({
                   )}
                 </div>
 
-                {/* Image Stage Action Toolbar (Xem lớn · Tải ảnh · Tạo lại) */}
+                {/* Image Stage Action Toolbar (Xem lớn · Tải ảnh · Tạo phương án khác) */}
                 <div className="flex flex-wrap items-center justify-between gap-2.5 w-full px-1">
                   <div className="flex items-center gap-2">
                     {/* [Xem lớn] Lightbox Button */}
@@ -421,22 +421,22 @@ export const Section3Lookbook: React.FC<Section3LookbookProps> = ({
                     )}
                   </div>
 
-                  {/* [Tạo lại] Explicit Regenerate Button (forceRegenerate = true) */}
+                  {/* [Tạo phương án khác] Explicit Regenerate Button (forceRegenerate = true) */}
                   {onRegenerate && (
                     <button
                       onClick={() => onRegenerate(true)}
                       disabled={isGenerating}
-                      className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-medium text-stone-800 bg-white hover:bg-stone-50 border border-stone-300 shadow-2xs hover:border-indigo-300 hover:text-indigo-600 transition-all cursor-pointer disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100/80 border border-indigo-200/80 shadow-2xs transition-all cursor-pointer disabled:opacity-50"
                     >
                       <RotateCw className={`w-3.5 h-3.5 ${isGenerating ? 'animate-spin' : ''}`} />
-                      <span>Tạo lại</span>
+                      <span>Tạo phương án khác</span>
                     </button>
                   )}
                 </div>
               </div>
 
               {/* RIGHT: DETAILS PANEL — “BẢN PHỐI ĐƯỢC DÙNG” */}
-              <div className="lg:col-span-5 rounded-3xl p-5 sm:p-6 bg-white/80 border border-stone-200/80 shadow-2xs space-y-5">
+              <div className="lg:col-span-6 rounded-3xl p-5 sm:p-6 bg-white/80 border border-stone-200/80 shadow-2xs space-y-5">
                 <div className="space-y-1 border-b border-stone-100 pb-3">
                   <div className="flex items-center gap-2">
                     <span className="text-[11px] font-bold text-stone-400 uppercase tracking-wider">

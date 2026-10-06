@@ -19,7 +19,8 @@ import {
   GarmentRecommendationOutput,
   BlueprintOutput,
   GenerationSnapshot,
-  LookbookGenerationState
+  LookbookGenerationState,
+  GenderPresentation
 } from '../types';
 
 export const CURRENT_SESSION_VERSION = 1 as const;
@@ -46,6 +47,7 @@ export interface PersistedDraftContext {
   sliderValue: number;
   selectedOccasion: OccasionId;
   selectedIntent: RemixIntent;
+  genderPresentation?: GenderPresentation;
 }
 
 export interface PersistedCommittedContext {
@@ -53,6 +55,7 @@ export interface PersistedCommittedContext {
   selectedOccasion: string;
   selectedStyle: string;
   traditionalRatio: number;
+  genderPresentation?: GenderPresentation;
 }
 
 export interface PersistedACSessionV1 {

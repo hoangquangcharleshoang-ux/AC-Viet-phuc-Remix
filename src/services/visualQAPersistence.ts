@@ -132,14 +132,18 @@ export function recordLookbookRevision(params: {
     };
     store.threads.unshift(thread);
   } else {
-    // Update existing revision or append
+    // If starting a brand new V0 lineage ("Tạo phương án khác"), reset revisions to [newRevision]
     const existingIndex = thread.revisions.findIndex(r => r.generationId === params.generationId);
-    if (existingIndex >= 0) {
+    if (params.revisionIndex === 0 && existingIndex < 0) {
+      thread.revisions = [newRevision];
+    } else if (existingIndex >= 0) {
       thread.revisions[existingIndex] = {
         ...thread.revisions[existingIndex],
         ...newRevision
       };
     } else {
+      // Remove any existing revision with the same revisionIndex to guarantee uniqueness
+      thread.revisions = thread.revisions.filter(r => r.revisionIndex !== params.revisionIndex);
       thread.revisions.push(newRevision);
       // Sort revisions ascending by revisionIndex (0, 1, 2)
       thread.revisions.sort((a, b) => a.revisionIndex - b.revisionIndex);

@@ -119,13 +119,19 @@ export async function routeGeminiTask<T>(options: RouteTaskOptions<T>): Promise<
 
   const routeDeadlineMs =
     options.deadlineMs ??
-    (task === 'RECOMMENDATION' ? ROUTER_CONFIG.callADeadlineMs : ROUTER_CONFIG.callBDeadlineMs);
+    (task === 'RECOMMENDATION'
+      ? ROUTER_CONFIG.callADeadlineMs
+      : task === 'VISUAL_QA'
+      ? ROUTER_CONFIG.callCDeadlineMs
+      : ROUTER_CONFIG.callBDeadlineMs);
   const deadlineAt = startTime + routeDeadlineMs;
 
   const candidateTimeoutCap =
     options.candidateTimeoutCapMs ??
     (task === 'RECOMMENDATION'
       ? ROUTER_CONFIG.callACandidateTimeoutCapMs
+      : task === 'VISUAL_QA'
+      ? ROUTER_CONFIG.callCCandidateTimeoutCapMs
       : ROUTER_CONFIG.callBCandidateTimeoutCapMs);
 
   const isCancelled = (): boolean => {

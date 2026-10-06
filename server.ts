@@ -1485,7 +1485,8 @@ Trả về JSON cấu trúc đúng schema.`;
             config: {
               systemInstruction: visualQASystemInstruction,
               responseMimeType: 'application/json',
-              responseSchema: visualQASchema
+              responseSchema: visualQASchema,
+              abortSignal: signal
             }
           });
 
@@ -1514,8 +1515,35 @@ Trả về JSON cấu trúc đúng schema.`;
             }
           );
 
+          const raceWithSignal = async () => {
+            if (!signal) return await sdkPromise;
+            if (signal.aborted) {
+              const err = new Error('Candidate execution aborted');
+              err.name = 'AbortError';
+              throw err;
+            }
+            return new Promise<any>((resolve, reject) => {
+              const onAbort = () => {
+                const err = new Error('Candidate execution aborted');
+                err.name = 'AbortError';
+                reject(err);
+              };
+              signal.addEventListener('abort', onAbort, { once: true });
+              sdkPromise.then(
+                res => {
+                  signal.removeEventListener('abort', onAbort);
+                  resolve(res);
+                },
+                err => {
+                  signal.removeEventListener('abort', onAbort);
+                  reject(err);
+                }
+              );
+            });
+          };
+
           try {
-            const response = await sdkPromise;
+            const response = await raceWithSignal();
             const parsed = JSON.parse(response.text?.trim() || '{}');
             if (!parsed.traitEvaluations || !parsed.outfitFidelity) {
               throw new Error('Malformed Visual QA structured response');
@@ -2020,6 +2048,16 @@ function sanitizeBlueprintOutput(garmentId: string, output: any, promptText?: st
     contextCautions
   };
 }
+
+// Express API Guard: Catch any unmatched /api/* request and return typed JSON 404
+app.all('/api/*', (req, res) => {
+  console.warn(`[API Fallback] Unmatched API request: ${req.method} ${req.path}`);
+  return res.status(404).json({
+    code: 'API_ENDPOINT_NOT_FOUND',
+    message: `API route ${req.method} ${req.path} không tồn tại.`,
+    status: 404
+  });
+});
 
 // Vite integration
 async function startServer() {

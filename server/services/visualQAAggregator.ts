@@ -635,8 +635,15 @@ export function buildGroundedCorrectionPlan(
   const fidelityDeltas: GroundedCorrectionPlan['fidelityDeltas'] = [];
   const fidelity = qaOutput.outfitFidelity.details;
 
+  const snap = snapshot as any;
+  const palette = snap?.palette || snap?.remixProposal?.palette || [];
+  const fabricId = snap?.fabricId || snap?.remixProposal?.fabricId || '';
+  const lowerGarmentId = snap?.lowerGarmentId || snap?.remixProposal?.lowerGarmentId || '';
+  const footwearId = snap?.footwearId || snap?.remixProposal?.footwearId || '';
+  const activeAccessoryIds = snap?.activeAccessoryIds || snap?.remixProposal?.accessoryIds || [];
+
   if (fidelity.palette.primaryMatch === 'FAIL' || fidelity.palette.primaryMatch === 'PARTIAL') {
-    const primary = snapshot.palette.find(p => p.role === 'PRIMARY') || snapshot.palette[0];
+    const primary = palette.find((p: any) => p.role === 'PRIMARY') || palette[0];
     fidelityDeltas.push({
       element: 'palette',
       description: 'Màu chủ đạo thân áo chưa đúng với màu đã chọn.',
@@ -645,7 +652,7 @@ export function buildGroundedCorrectionPlan(
   }
 
   if (fidelity.palette.supportingMatch === 'FAIL' || fidelity.palette.supportingMatch === 'PARTIAL') {
-    const supp = snapshot.palette.find(p => p.role === 'SUPPORTING') || snapshot.palette[1];
+    const supp = palette.find((p: any) => p.role === 'SUPPORTING') || palette[1];
     if (supp) {
       fidelityDeltas.push({
         element: 'palette',
@@ -656,7 +663,7 @@ export function buildGroundedCorrectionPlan(
   }
 
   if (fidelity.palette.accentMatch === 'FAIL' || fidelity.palette.accentMatch === 'PARTIAL') {
-    const accent = snapshot.palette.find(p => p.role === 'ACCENT') || snapshot.palette[2];
+    const accent = palette.find((p: any) => p.role === 'ACCENT') || palette[2];
     if (accent) {
       fidelityDeltas.push({
         element: 'palette',
@@ -670,7 +677,7 @@ export function buildGroundedCorrectionPlan(
     fidelityDeltas.push({
       element: 'fabric',
       description: 'Chất liệu vải thân áo cần thể hiện đúng kết cấu dệt tự nhiên.',
-      expectedValue: snapshot.fabricId
+      expectedValue: fabricId
     });
   }
 
@@ -678,7 +685,7 @@ export function buildGroundedCorrectionPlan(
     fidelityDeltas.push({
       element: 'lowerGarment',
       description: 'Hạ phục chưa khớp với bản phối chỉ định.',
-      expectedValue: snapshot.lowerGarmentId
+      expectedValue: lowerGarmentId
     });
   }
 
@@ -686,7 +693,7 @@ export function buildGroundedCorrectionPlan(
     fidelityDeltas.push({
       element: 'footwear',
       description: 'Kiểu dáng giày dép chưa khớp với bản phối.',
-      expectedValue: snapshot.footwearId
+      expectedValue: footwearId
     });
   }
 
@@ -694,8 +701,8 @@ export function buildGroundedCorrectionPlan(
     fidelityDeltas.push({
       element: 'accessories',
       description: `Loại bỏ các phụ kiện ngoài dự kiến: ${fidelity.unexpectedAccessories.join(', ')}.`,
-      expectedValue: snapshot.activeAccessoryIds.length > 0
-        ? `Chỉ mang các phụ kiện: ${snapshot.activeAccessoryIds.join(', ')}`
+      expectedValue: activeAccessoryIds.length > 0
+        ? `Chỉ mang các phụ kiện: ${activeAccessoryIds.join(', ')}`
         : 'Không mang thêm phụ kiện thừa'
     });
   }

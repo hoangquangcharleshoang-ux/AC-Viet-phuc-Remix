@@ -27,12 +27,15 @@ interface HeroHomepageProps {
   onSelectStyleKey?: (key: string) => void;
   sliderValue?: number;
   onSliderValueChange?: (val: number) => void;
+  genderPresentation?: 'nam' | 'nu' | 'neutral';
+  onGenderChange?: (gender: 'nam' | 'nu' | 'neutral') => void;
   onExploreClick?: () => void;
   onSubmitOmnibox?: (payload: {
     promptText: string;
     selectedOccasion: string;
     selectedStyle: string;
     traditionalRatio: number;
+    genderPresentation?: 'nam' | 'nu' | 'neutral';
   }) => void;
   isRecommending?: boolean;
 }
@@ -49,6 +52,8 @@ export const HeroHomepage: React.FC<HeroHomepageProps> = ({
   onSelectStyleKey,
   sliderValue: controlledSliderValue,
   onSliderValueChange,
+  genderPresentation = 'nam',
+  onGenderChange,
   onExploreClick,
   onSubmitOmnibox,
   isRecommending
@@ -259,6 +264,45 @@ export const HeroHomepage: React.FC<HeroHomepageProps> = ({
               </div>
             </div>
 
+            {/* TẦNG C — MỤC NGƯỜI MẶC (Gender Presentation) */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-[11px] font-bold text-stone-400 uppercase tracking-wider">
+                  NGƯỜI MẶC
+                </span>
+                <span className="text-stone-300 font-light">•</span>
+                <span className="text-xs text-stone-500 font-medium capitalize">
+                  {genderPresentation === 'nu' ? 'Nữ' : genderPresentation === 'neutral' ? 'Không ưu tiên' : 'Nam'}
+                </span>
+              </div>
+
+              {/* 3 Nút Pill Người Mặc */}
+              <div className="flex flex-wrap items-center gap-2">
+                {[
+                  { id: 'nam', label: 'Nam' },
+                  { id: 'nu', label: 'Nữ' },
+                  { id: 'neutral', label: 'Không ưu tiên' }
+                ].map(item => {
+                  const isSelected = (genderPresentation || 'nam') === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => onGenderChange?.(item.id as 'nam' | 'nu' | 'neutral')}
+                      className={`px-3.5 py-1.5 rounded-full text-xs transition-all cursor-pointer ${
+                        isSelected
+                          ? 'font-medium text-indigo-950 bg-white/90 backdrop-blur-md border-2 border-indigo-400/70 shadow-sm shadow-indigo-100/50 flex items-center gap-1.5'
+                          : 'font-normal text-stone-600 bg-white/60 backdrop-blur-sm border border-stone-200/80 hover:bg-white/80 hover:text-stone-900 shadow-2xs'
+                      }`}
+                    >
+                      {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-indigo-600 shrink-0" />}
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* HÀNG ĐÁY — GỘP THANH TRƯỢT GỌN GÀNG (~35%) VÀ NÚT CTA CÙNG MỘT HÀNG */}
             <div className="pt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t border-stone-100">
               {/* Bên trái: Cụm thanh trượt thu gọn chiếm ~35% - 40% bề ngang */}
@@ -308,7 +352,8 @@ export const HeroHomepage: React.FC<HeroHomepageProps> = ({
                         promptText,
                         selectedOccasion: selectedOccasionKey,
                         selectedStyle: selectedStyleKey,
-                        traditionalRatio: sliderValue
+                        traditionalRatio: sliderValue,
+                        genderPresentation: genderPresentation || 'nam'
                       });
                     } else if (onExploreClick) {
                       onExploreClick();

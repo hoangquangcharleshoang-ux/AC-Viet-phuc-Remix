@@ -66,7 +66,7 @@ export const CulturalQACard: React.FC<CulturalQACardProps> = ({
   onTriggerRevision
 }) => {
   const [activeTab, setActiveTab] = useState<'IDENTITY' | 'FIDELITY' | 'TRANSITIONS'>('IDENTITY');
-  const [isDetailsExpanded, setIsDetailsExpanded] = useState<boolean>(true);
+  const [isDetailsExpanded, setIsDetailsExpanded] = useState<boolean>(false);
 
   // If no generationId exists yet, card does not render
   if (!generationId) {
@@ -154,14 +154,14 @@ export const CulturalQACard: React.FC<CulturalQACardProps> = ({
   const getCategoryLabel = (category: string) => {
     switch (category) {
       case 'essential':
-        return { label: 'Đặc trưng cốt lõi', color: 'text-amber-700 bg-amber-50 border-amber-200/60' };
+        return { label: 'Yếu tố cốt lõi (Essential)', color: 'text-amber-800 bg-amber-50 border-amber-200/80' };
       case 'strongly_characteristic':
-        return { label: 'Đặc trưng mạnh', color: 'text-indigo-700 bg-indigo-50 border-indigo-200/60' };
+        return { label: 'Đặc trưng nổi bật', color: 'text-indigo-800 bg-indigo-50 border-indigo-200/80' };
       case 'supporting':
-        return { label: 'Đặc trưng hỗ trợ', color: 'text-stone-600 bg-stone-100 border-stone-200' };
+        return { label: 'Đặc trưng bổ trợ', color: 'text-stone-700 bg-stone-100 border-stone-200' };
       case 'variable':
       default:
-        return { label: 'Yếu tố tùy biến', color: 'text-stone-500 bg-stone-50 border-stone-200/60' };
+        return { label: 'Biến thể linh hoạt', color: 'text-stone-600 bg-stone-50 border-stone-200/60' };
     }
   };
 
@@ -265,10 +265,18 @@ export const CulturalQACard: React.FC<CulturalQACardProps> = ({
 
                 {/* Metric Pill & Expand Toggle */}
                 <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
-                  <span className="px-3 py-1 rounded-full text-[11px] font-medium bg-stone-100 text-stone-700 border border-stone-200/80 shadow-2xs">
-                    Quan sát {qaState.result.culturalIdentity.assessableTraitsCount}/
-                    {qaState.result.culturalIdentity.totalTraitsCount} đặc trưng
-                  </span>
+                  {(() => {
+                    const traitsList = qaState.result.culturalIdentity.traits || [];
+                    const passCount = traitsList.filter(t => t.verdict === 'PASS').length;
+                    const needFixCount = traitsList.filter(t => t.verdict === 'FAIL' || t.verdict === 'PARTIAL').length;
+                    const assessable = qaState.result.culturalIdentity.assessableTraitsCount;
+                    const total = qaState.result.culturalIdentity.totalTraitsCount;
+                    return (
+                      <span className="px-3 py-1 rounded-full text-[11px] font-medium bg-stone-100 text-stone-700 border border-stone-200/80 shadow-2xs">
+                        Đánh giá được {assessable}/{total} · {passCount} đạt{needFixCount > 0 ? ` · ${needFixCount} cần chỉnh` : ''}
+                      </span>
+                    );
+                  })()}
                   <button
                     type="button"
                     onClick={() => setIsDetailsExpanded(prev => !prev)}
@@ -286,6 +294,69 @@ export const CulturalQACard: React.FC<CulturalQACardProps> = ({
             );
           })()}
 
+          {/* DUAL-SOURCE GROUNDED REVISION PLAN & USER CTA (TOP PRIORITY) */}
+          {hasCorrectionTargets && (
+            <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200/90 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-900">
+                    <Wand2 className="w-4 h-4 text-amber-600" />
+                    <span>Kế hoạch tinh chỉnh chuẩn xác hai nguồn (Grounded Correction)</span>
+                  </div>
+                  <p className="text-[11px] text-amber-700 font-normal">
+                    {correctionPlan?.revisionTargetSummary}
+                  </p>
+                </div>
+
+                {!isRevisionLimitReached && onTriggerRevision ? (
+                  <button
+                    type="button"
+                    onClick={onTriggerRevision}
+                    disabled={isGeneratingLookbook}
+                    className="rounded-full px-5 py-2 text-xs font-semibold bg-gradient-to-r from-indigo-600 via-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-sm shadow-indigo-200/50 flex items-center gap-2 shrink-0 cursor-pointer self-start sm:self-center transition-all disabled:opacity-50"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                    <span>Tinh chỉnh theo thẩm định ✦ (Lần {revisionIndex + 1}/2)</span>
+                  </button>
+                ) : isRevisionLimitReached ? (
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-stone-200/80 text-stone-700 border border-stone-300 shadow-2xs self-start sm:self-center">
+                    <Lock className="w-3.5 h-3.5 text-stone-500" />
+                    <span>Đã đạt giới hạn tối đa 2 lần tinh chỉnh</span>
+                  </div>
+                ) : null}
+              </div>
+
+              {/* Deltas breakdown */}
+              <div className="space-y-2 pt-1 border-t border-amber-200/60 text-xs">
+                {correctionPlan?.culturalDeltas && correctionPlan.culturalDeltas.length > 0 && (
+                  <div className="space-y-1 text-[11px] text-amber-900">
+                    <span className="font-semibold">Mục tiêu chuẩn hóa văn hóa:</span>
+                    <ul className="list-disc list-inside pl-1 text-amber-800 space-y-0.5">
+                      {correctionPlan.culturalDeltas.map(cd => (
+                        <li key={cd.traitId}>
+                          <strong>{cd.traitNameVi}</strong>: {cd.canonicalGuidance}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {correctionPlan?.fidelityDeltas && correctionPlan.fidelityDeltas.length > 0 && (
+                  <div className="space-y-1 text-[11px] text-amber-900">
+                    <span className="font-semibold">Mục tiêu khớp bản phối:</span>
+                    <ul className="list-disc list-inside pl-1 text-amber-800 space-y-0.5">
+                      {correctionPlan.fidelityDeltas.map((fd, idx) => (
+                        <li key={idx}>
+                          <strong>{fd.element}</strong>: {fd.description} ({fd.expectedValue})
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Collapsible Details Section */}
           {isDetailsExpanded && (
             <div className="space-y-4 pt-1 animate-in fade-in duration-200">
@@ -294,10 +365,10 @@ export const CulturalQACard: React.FC<CulturalQACardProps> = ({
                 <button
                   type="button"
                   onClick={() => setActiveTab('IDENTITY')}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer ${
+                  className={`px-3.5 py-1.5 rounded-full text-xs transition-all cursor-pointer ${
                     activeTab === 'IDENTITY'
-                      ? 'bg-stone-900 text-white shadow-2xs'
-                      : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
+                      ? 'bg-indigo-600 text-white font-semibold shadow-2xs'
+                      : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100 font-medium'
                   }`}
                 >
                   Đặc trưng nhận diện cổ phục
@@ -305,10 +376,10 @@ export const CulturalQACard: React.FC<CulturalQACardProps> = ({
                 <button
                   type="button"
                   onClick={() => setActiveTab('FIDELITY')}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer ${
+                  className={`px-3.5 py-1.5 rounded-full text-xs transition-all cursor-pointer ${
                     activeTab === 'FIDELITY'
-                      ? 'bg-stone-900 text-white shadow-2xs'
-                      : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
+                      ? 'bg-indigo-600 text-white font-semibold shadow-2xs'
+                      : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100 font-medium'
                   }`}
                 >
                   Độ tương khớp bản phối (Fidelity)
@@ -317,10 +388,10 @@ export const CulturalQACard: React.FC<CulturalQACardProps> = ({
                   <button
                     type="button"
                     onClick={() => setActiveTab('TRANSITIONS')}
-                    className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer ${
+                    className={`px-3.5 py-1.5 rounded-full text-xs transition-all cursor-pointer ${
                       activeTab === 'TRANSITIONS'
-                        ? 'bg-stone-900 text-white shadow-2xs'
-                        : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
+                        ? 'bg-indigo-600 text-white font-semibold shadow-2xs'
+                        : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100 font-medium'
                     }`}
                   >
                     Chuyển dịch qua các lần tinh chỉnh ({revisions.length})
@@ -473,71 +544,6 @@ export const CulturalQACard: React.FC<CulturalQACardProps> = ({
                   revisions={revisions}
                   activeRevisionIndex={revisionIndex}
                 />
-              )}
-
-              {/* ------------------------------------------------------------- */}
-              {/* DUAL-SOURCE GROUNDED REVISION PLAN & USER CTA */}
-              {/* ------------------------------------------------------------- */}
-              {hasCorrectionTargets && (
-                <div className="mt-4 p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="space-y-0.5">
-                      <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-900">
-                        <Wand2 className="w-4 h-4 text-amber-600" />
-                        <span>Kế hoạch tinh chỉnh chuẩn xác hai nguồn (Grounded Correction)</span>
-                      </div>
-                      <p className="text-[11px] text-amber-700 font-normal">
-                        {correctionPlan?.revisionTargetSummary}
-                      </p>
-                    </div>
-
-                    {!isRevisionLimitReached && onTriggerRevision ? (
-                      <button
-                        type="button"
-                        onClick={onTriggerRevision}
-                        disabled={isGeneratingLookbook}
-                        className="rounded-full px-5 py-2 text-xs font-semibold bg-stone-900 hover:bg-stone-800 text-white shadow-sm flex items-center gap-2 shrink-0 cursor-pointer self-start sm:self-center transition-all disabled:opacity-50"
-                      >
-                        <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                        <span>Tinh chỉnh theo thẩm định ✦ (Lần {revisionIndex + 1}/2)</span>
-                      </button>
-                    ) : isRevisionLimitReached ? (
-                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-stone-200/80 text-stone-700 border border-stone-300 shadow-2xs self-start sm:self-center">
-                        <Lock className="w-3.5 h-3.5 text-stone-500" />
-                        <span>Đã đạt giới hạn tối đa 2 lần tinh chỉnh</span>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  {/* Deltas breakdown */}
-                  <div className="space-y-2 pt-1 border-t border-amber-200/60 text-xs">
-                    {correctionPlan?.culturalDeltas && correctionPlan.culturalDeltas.length > 0 && (
-                      <div className="space-y-1 text-[11px] text-amber-900">
-                        <span className="font-semibold">Mục tiêu chuẩn hóa văn hóa:</span>
-                        <ul className="list-disc list-inside pl-1 text-amber-800 space-y-0.5">
-                          {correctionPlan.culturalDeltas.map(cd => (
-                            <li key={cd.traitId}>
-                              <strong>{cd.traitNameVi}</strong>: {cd.canonicalGuidance}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {correctionPlan?.fidelityDeltas && correctionPlan.fidelityDeltas.length > 0 && (
-                      <div className="space-y-1 text-[11px] text-amber-900">
-                        <span className="font-semibold">Mục tiêu khớp bản phối:</span>
-                        <ul className="list-disc list-inside pl-1 text-amber-800 space-y-0.5">
-                          {correctionPlan.fidelityDeltas.map((fd, idx) => (
-                            <li key={idx}>
-                              <strong>{fd.element}</strong>: {fd.description} ({fd.expectedValue})
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                </div>
               )}
             </div>
           )}

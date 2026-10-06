@@ -62,6 +62,15 @@ export async function verifyLookbookImage(
 
   const promise = (async () => {
     try {
+      console.log('[VisualQA Client Diagnostic] Starting verifyLookbookImage:', {
+        generationId: req.generationId,
+        boundFingerprint: req.boundFingerprint,
+        timestamp: new Date().toISOString(),
+        hasSignal: !!signal,
+        signalAborted: signal?.aborted || false,
+        abortReason: signal?.reason ? String(signal.reason) : null
+      });
+
       const res = await fetch('/api/verify-lookbook', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -524,13 +524,15 @@ export async function recommendGarment(input: {
   selectedOccasion: string;
   selectedStyle: string;
   traditionalRatio: number;
+  genderPresentation?: string;
   signal?: AbortSignal;
 }): Promise<GarmentRecommendationOutput> {
   const cacheKey = [
     input.promptText.trim().toLowerCase(),
     input.selectedOccasion,
     input.selectedStyle,
-    input.traditionalRatio
+    input.traditionalRatio,
+    input.genderPresentation || 'nam'
   ].join('|');
 
   // 1. Session Cache Check
@@ -609,6 +611,7 @@ export async function generateBlueprint(input: {
   selectedOccasion: string;
   selectedStyle: string;
   traditionalRatio: number;
+  genderPresentation?: string;
   signal?: AbortSignal;
 }): Promise<BlueprintOutput> {
   const cacheKey = [
@@ -616,7 +619,8 @@ export async function generateBlueprint(input: {
     input.promptText.trim().toLowerCase(),
     input.selectedOccasion,
     input.selectedStyle,
-    input.traditionalRatio
+    input.traditionalRatio,
+    input.genderPresentation || 'nam'
   ].join('|');
 
   // 1. Session Cache Check (Switching Primary -> Alt -> Primary reuses cached data with 0 API calls)

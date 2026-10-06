@@ -16,7 +16,8 @@ import {
   GenerationSnapshot,
   VisualQAState,
   LookbookRevisionItem,
-  GroundedCorrectionPlan
+  GroundedCorrectionPlan,
+  GenderPresentation
 } from './types';
 import { Navbar } from './components/Navbar';
 import { HeroHomepage } from './components/HeroHomepage';
@@ -62,7 +63,8 @@ export default function App() {
     selectedStyleKey: 'tre_trung',
     sliderValue: 50,
     selectedOccasion: 'tet_temple' as OccasionId,
-    selectedIntent: 'balanced' as RemixIntent
+    selectedIntent: 'balanced' as RemixIntent,
+    genderPresentation: 'nam'
   });
 
   // Committed Context Parameters (Context that was actually submitted to Call A / Call B)
@@ -71,11 +73,13 @@ export default function App() {
     selectedOccasion: string;
     selectedStyle: string;
     traditionalRatio: number;
+    genderPresentation?: GenderPresentation;
   }>({
     promptText: '',
     selectedOccasion: 'ky_yeu',
     selectedStyle: 'tre_trung',
-    traditionalRatio: 50
+    traditionalRatio: 50,
+    genderPresentation: 'nam'
   });
 
   // Phase 2A Pipeline State
@@ -101,6 +105,7 @@ export default function App() {
   const activeVisualQAAbortControllerRef = useRef<AbortController | null>(null);
   const activeVisualQAGenerationIdRef = useRef<string>('');
   const hydratedQARecoveredRef = useRef<Set<string>>(new Set());
+  const hydratedFromPersistenceGenIdRef = useRef<string | null>(null);
 
   // Stale-response protection refs
   const activeBlueprintRequestIdRef = useRef<number>(0);
@@ -183,6 +188,9 @@ export default function App() {
 
         // Restore Lookbook State (with snapshot preservation)
         if (session.lookbookState) {
+          if (session.lookbookState.status === 'success' && session.lookbookState.generationId) {
+            hydratedFromPersistenceGenIdRef.current = session.lookbookState.generationId;
+          }
           setLookbookState(session.lookbookState);
         }
       }
@@ -380,16 +388,22 @@ export default function App() {
     selectedOccasion: string;
     selectedStyle: string;
     traditionalRatio: number;
+    genderPresentation?: 'nam' | 'nu' | 'neutral';
   }) => {
     const recRequestId = ++activeRecommendationRequestIdRef.current;
-    setActiveParams(payload);
+    const effectiveGender = payload.genderPresentation || draftContext.genderPresentation || 'nam';
+    const paramsWithGender = {
+      ...payload,
+      genderPresentation: effectiveGender
+    };
+    setActiveParams(paramsWithGender);
     setApiError(null);
     setLookbookState({ status: 'idle' });
     setIsRecommending(true);
 
     try {
       // 1. Call A: Garment Recommendation
-      const recData = await recommendGarment(payload);
+      const recData = await recommendGarment(paramsWithGender);
       if (recRequestId !== activeRecommendationRequestIdRef.current) {
         console.log('[App] Dropped obsolete Call A response');
         return;
@@ -449,9 +463,12 @@ export default function App() {
     const targetFingerprint = payload.outfitFingerprint;
     activeLookbookFingerprintRef.current = targetFingerprint;
 
+    const currentGender = payload.genderPresentation || draftContext.genderPresentation || activeParams.genderPresentation || 'nam';
+
     // Capture Immutable Generation Snapshot
     const snapshot: GenerationSnapshot = {
       garmentId: payload.garmentId,
+      genderPresentation: currentGender,
       palette: payload.remixProposal.palette.map(p => ({
         id: p.id,
         role: p.role,
@@ -467,7 +484,8 @@ export default function App() {
         promptText: payload.context.userStyleIntent || '',
         occasion: payload.context.occasion,
         style: payload.context.style,
-        traditionalRatio: payload.context.traditionalRatio
+        traditionalRatio: payload.context.traditionalRatio,
+        genderPresentation: currentGender
       },
       boundFingerprint: targetFingerprint
     };
@@ -533,6 +551,7 @@ export default function App() {
       setActiveRevisionIndex(thread.activeRevisionIndex);
 
       // Requirement 1: Automatic non-blocking QA trigger for new successful generations (v0, v1, v2)
+      hydratedQARecoveredRef.current.add(`${res.generationId}_${res.outfitFingerprint}`);
       handleVerifyLookbook(res.generationId, res.outfitFingerprint);
     } catch (err: any) {
       if (activeLookbookFingerprintRef.current !== targetFingerprint) return;
@@ -649,9 +668,12 @@ export default function App() {
     const nextRevIndex = currentRevIndex + 1;
     if (nextRevIndex > 2) return; // Hard limit: max 2 revisions
 
+    const currentGender = draftContext.genderPresentation || activeParams.genderPresentation || 'nam';
+
     handleGenerateLookbook(
       {
         garmentId: selectedGarmentId,
+        genderPresentation: currentGender,
         remixProposal: {
           palette: blueprint.remixProposal.palette,
           fabricId: blueprint.remixProposal.fabricId,
@@ -663,7 +685,8 @@ export default function App() {
           occasion: activeParams.selectedOccasion,
           style: activeParams.selectedStyle,
           traditionalRatio: activeParams.traditionalRatio,
-          userStyleIntent: activeParams.promptText
+          userStyleIntent: activeParams.promptText,
+          genderPresentation: currentGender
         },
         outfitFingerprint: currentOutfitFingerprint,
         revisionIndex: nextRevIndex,
@@ -707,7 +730,10 @@ export default function App() {
           generationId: lookbookState.generationId,
           result: persisted
         });
-      } else {
+      } else if (
+        visualQAState.status !== 'loading' ||
+        visualQAState.generationId !== lookbookState.generationId
+      ) {
         setVisualQAState({ status: 'idle' });
       }
     } else if (lookbookState.status === 'idle') {
@@ -725,6 +751,9 @@ export default function App() {
     const genId = lookbookState.generationId;
     const boundFp = lookbookState.outfitFingerprint;
     if (!genId || !boundFp) return;
+
+    // Requirement A: Hydration recovery must ONLY recover a generation restored from persistence after actual hydration/F5
+    if (genId !== hydratedFromPersistenceGenIdRef.current) return;
 
     const recoveryKey = `${genId}_${boundFp}`;
 
@@ -746,7 +775,7 @@ export default function App() {
     if (hydratedQARecoveredRef.current.has(recoveryKey)) return;
 
     hydratedQARecoveredRef.current.add(recoveryKey);
-    console.log('[Hydration Recovery] Triggering 1-shot recovery for missing QA:', { genId, boundFp });
+    console.log('[Hydration Recovery] Triggering 1-shot recovery for missing QA restored from persistence:', { genId, boundFp });
     handleVerifyLookbook(genId, boundFp);
   }, [hasHydrated, lookbookState, visualQAState.status, handleVerifyLookbook]);
 
@@ -893,6 +922,22 @@ export default function App() {
           onSelectStyleKey={key => setDraftContext(p => ({ ...p, selectedStyleKey: key }))}
           sliderValue={draftContext.sliderValue}
           onSliderValueChange={val => setDraftContext(p => ({ ...p, sliderValue: val }))}
+          genderPresentation={draftContext.genderPresentation || 'nam'}
+          onGenderChange={gender => {
+            setDraftContext(p => ({ ...p, genderPresentation: gender }));
+            setActiveParams(p => ({ ...p, genderPresentation: gender }));
+            if (recommendation) {
+              setLookbookState({ status: 'idle' });
+              setVisualQAState({ status: 'idle' });
+              handleOmniboxSubmit({
+                promptText: activeParams.promptText,
+                selectedOccasion: activeParams.selectedOccasion,
+                selectedStyle: activeParams.selectedStyle,
+                traditionalRatio: activeParams.traditionalRatio,
+                genderPresentation: gender
+              });
+            }
+          }}
           onExploreClick={handleExploreClick}
           onSubmitOmnibox={handleOmniboxSubmit}
           isRecommending={isRecommending}
@@ -979,7 +1024,13 @@ export default function App() {
             selectedStyle={activeParams.selectedStyle}
             traditionalRatio={activeParams.traditionalRatio}
             promptText={activeParams.promptText}
+            genderPresentation={draftContext.genderPresentation || activeParams.genderPresentation || 'nam'}
+            onGenderPresentationChange={gender => {
+              setDraftContext(p => ({ ...p, genderPresentation: gender }));
+              setActiveParams(p => ({ ...p, genderPresentation: gender }));
+            }}
             isLoading={isLoadingBlueprint}
+            isRecommending={isRecommending}
             isGeneratingLookbook={lookbookState.status === 'generating'}
             activeAccessories={effectiveActiveAccessories}
             onActiveAccessoriesChange={handleActiveAccessoriesChange}

@@ -18,7 +18,7 @@ import {
   X,
   ArrowRight
 } from 'lucide-react';
-import { GarmentId, BlueprintOutput, GenerateLookbookRequest } from '../types';
+import { GarmentId, BlueprintOutput, GenerateLookbookRequest, GenderPresentation } from '../types';
 import { GARMENTS } from '../data/culturalKnowledgePack';
 import {
   getFabricLabel,
@@ -35,7 +35,10 @@ interface Section2BlueprintProps {
   selectedStyle: string;
   traditionalRatio: number;
   promptText?: string;
+  genderPresentation?: GenderPresentation;
+  onGenderPresentationChange?: (gender: GenderPresentation) => void;
   isLoading: boolean;
+  isRecommending?: boolean;
   isGeneratingLookbook?: boolean;
   activeAccessories?: string[];
   onActiveAccessoriesChange?: (accessories: string[]) => void;
@@ -50,7 +53,10 @@ export const Section2Blueprint: React.FC<Section2BlueprintProps> = ({
   selectedStyle,
   traditionalRatio,
   promptText,
+  genderPresentation = 'nam',
+  onGenderPresentationChange,
   isLoading,
+  isRecommending = false,
   isGeneratingLookbook = false,
   activeAccessories: controlledActiveAccessories,
   onActiveAccessoriesChange,
@@ -113,6 +119,7 @@ export const Section2Blueprint: React.FC<Section2BlueprintProps> = ({
     if (!blueprint || isGeneratingLookbook || !onGenerateLookbook) return;
     const effectivePayload: GenerateLookbookRequest = {
       garmentId: selectedGarmentId,
+      genderPresentation,
       remixProposal: {
         palette: blueprint.remixProposal.palette,
         fabricId: blueprint.remixProposal.fabricId,
@@ -124,7 +131,8 @@ export const Section2Blueprint: React.FC<Section2BlueprintProps> = ({
         occasion: selectedOccasion,
         style: selectedStyle,
         traditionalRatio,
-        userStyleIntent: promptText
+        userStyleIntent: promptText,
+        genderPresentation
       },
       outfitFingerprint
     };
@@ -459,15 +467,23 @@ export const Section2Blueprint: React.FC<Section2BlueprintProps> = ({
               </p>
             </div>
 
-            {/* Right: Action CTA (Reusing exact Homepage Soft Aurora CTA classes) */}
-            <div className="relative flex items-center shrink-0">
+            {/* Right: Action CTA & Subject Gender Badge */}
+            <div className="relative flex flex-wrap items-center gap-3 shrink-0">
+              {/* Gender/Subject Presentation Badge (Single Source of Truth from Section 1) */}
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-200/80 shadow-2xs text-xs font-medium text-indigo-900">
+                <span className="text-indigo-600/80 font-normal">Người mặc:</span>
+                <span className="font-semibold text-indigo-950">
+                  {genderPresentation === 'nu' ? 'Nữ' : genderPresentation === 'neutral' ? 'Không ưu tiên' : 'Nam'}
+                </span>
+              </div>
+
               <button
                 onClick={handleGenerateClick}
-                disabled={isGeneratingLookbook || !blueprint}
+                disabled={isGeneratingLookbook || isLoading || isRecommending || !blueprint}
                 className={`rounded-full px-6 py-2.5 font-medium text-sm tracking-wide shadow-md transition-all duration-300 flex items-center gap-2 ${
-                  isGeneratingLookbook
-                    ? 'bg-stone-200 text-stone-500 border border-stone-300 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-indigo-400 via-indigo-400 to-sky-400 border border-white/50 text-white shadow-indigo-200/50 hover:shadow-lg hover:shadow-indigo-300/60 hover:brightness-105 active:scale-[0.98] cursor-pointer'
+                  isGeneratingLookbook || isLoading || isRecommending || !blueprint
+                    ? 'bg-stone-200 text-stone-500 border border-stone-300 cursor-not-allowed opacity-70'
+                    : 'bg-gradient-to-r from-indigo-500 via-indigo-600 to-sky-500 border border-white/50 text-white shadow-indigo-200/50 hover:shadow-lg hover:shadow-indigo-300/60 hover:brightness-105 active:scale-[0.98] cursor-pointer'
                 }`}
               >
                 {isGeneratingLookbook ? (

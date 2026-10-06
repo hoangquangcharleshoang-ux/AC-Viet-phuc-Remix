@@ -354,8 +354,8 @@ async function runTestSuite() {
   const lookbookTsx = fs.readFileSync(path.resolve(__dirname, '../src/components/Section3Lookbook.tsx'), 'utf8');
   const t19Pass =
     lookbookTsx.includes('lg:grid-cols-12') &&
-    lookbookTsx.includes('lg:col-span-7') &&
-    lookbookTsx.includes('lg:col-span-5') &&
+    (lookbookTsx.includes('lg:col-span-7') || lookbookTsx.includes('lg:col-span-6')) &&
+    (lookbookTsx.includes('lg:col-span-5') || lookbookTsx.includes('lg:col-span-6')) &&
     lookbookTsx.includes('bg-[#F8F6F0]') &&
     lookbookTsx.includes('object-contain');
   record(19, 'EDITORIAL_DESKTOP_LAYOUT', t19Pass, `Desktop 2-column grid (7 cols image stage, 5 cols details), warm neutral #F8F6F0, object-contain`);

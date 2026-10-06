@@ -261,9 +261,12 @@ export interface BlueprintOutput {
   contextCautions: string[]; // Lưu ý bối cảnh & nhận diện do AI suy luận
 }
 
+export type GenderPresentation = 'nam' | 'nu' | 'neutral';
+
 // Phase 2B & 2B.1: Realistic Lookbook Image Generation Contracts
 export interface GenerationSnapshot {
   garmentId: GarmentId;
+  genderPresentation?: GenderPresentation;
   palette: Array<{
     id: string;
     role: PaletteRole;
@@ -280,12 +283,14 @@ export interface GenerationSnapshot {
     occasion: string;
     style: string;
     traditionalRatio: number;
+    genderPresentation?: GenderPresentation;
   };
   boundFingerprint: string;
 }
 
 export interface GenerateLookbookRequest {
   garmentId: GarmentId;
+  genderPresentation?: GenderPresentation;
   remixProposal: {
     palette: PaletteItem[];
     fabricId: string;
@@ -298,6 +303,7 @@ export interface GenerateLookbookRequest {
     style: string;
     traditionalRatio: number;
     userStyleIntent?: string;
+    genderPresentation?: GenderPresentation;
   };
   outfitFingerprint: string;
   forceRegenerate?: boolean;

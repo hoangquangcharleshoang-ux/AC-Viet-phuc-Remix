@@ -111,9 +111,18 @@ function compileGarmentStructuralGuard(garmentId: GarmentId): string {
 export function compileVisualPrompt(request: GenerateLookbookRequest): CompiledVisualPrompt {
   const { garmentId, remixProposal, context, outfitFingerprint } = request;
 
+  const gender = request.genderPresentation || context?.genderPresentation || 'nam';
+  const modelGenderDesc = gender === 'nu' ? 'female model' : gender === 'neutral' ? 'model (gender-neutral presentation)' : 'male model';
+
+  const identityLockProse = gender === 'nu'
+    ? 'Maintain strict gender and facial identity continuity: a female Vietnamese model with consistent facial presentation and styling.'
+    : gender === 'neutral'
+    ? 'Maintain strict identity continuity: a Vietnamese model with consistent neutral presentation and styling.'
+    : 'Maintain strict gender and facial identity continuity: a male Vietnamese model with consistent facial presentation and styling.';
+
   // 1. Photography Baseline
   const baselineIntro =
-    'Photorealistic full-body fashion lookbook photograph. One Vietnamese model wearing the specified Vietnamese traditional outfit. Neutral standing pose, front or subtle three-quarter view. The complete garment construction must remain clearly visible from collar to footwear. Natural relaxed posture, arms resting gently at sides so sleeve geometry and closure details are completely unobstructed. Soft natural daylight, clean neutral architectural or minimalist studio backdrop with subtle warm tones. High-quality realistic textile texture, authentic weave, realistic human anatomy. Structural garment fidelity takes absolute priority over flattering body shaping or dramatic fashion editorial poses. No text, no captions, no typography, no labels, no logos, no watermarks, no graphic design overlays.';
+    `Photorealistic full-body fashion lookbook photograph. One Vietnamese ${modelGenderDesc} wearing the specified Vietnamese traditional outfit. Neutral standing pose, front or subtle three-quarter view. The complete garment construction must remain clearly visible from collar to footwear. Natural relaxed posture, arms resting gently at sides so sleeve geometry and closure details are completely unobstructed. Soft natural daylight, clean neutral architectural or minimalist studio backdrop with subtle warm tones. High-quality realistic textile texture, authentic weave, realistic human anatomy. Structural garment fidelity takes absolute priority over flattering body shaping or dramatic fashion editorial poses. ${identityLockProse} No text, no captions, no typography, no labels, no logos, no watermarks, no graphic design overlays.`;
 
   // 2. Garment Structural Guard
   const structuralGuard = compileGarmentStructuralGuard(garmentId);
