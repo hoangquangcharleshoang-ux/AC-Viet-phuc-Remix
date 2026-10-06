@@ -294,8 +294,8 @@ export const CulturalQACard: React.FC<CulturalQACardProps> = ({
             );
           })()}
 
-          {/* DUAL-SOURCE GROUNDED REVISION PLAN & USER CTA (TOP PRIORITY) */}
-          {hasCorrectionTargets && (
+          {/* DUAL-SOURCE GROUNDED REVISION PLAN & USER CTA / COMPACT SUCCESS STATE */}
+          {hasCorrectionTargets ? (
             <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200/90 space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="space-y-0.5">
@@ -353,6 +353,23 @@ export const CulturalQACard: React.FC<CulturalQACardProps> = ({
                     </ul>
                   </div>
                 )}
+              </div>
+            </div>
+          ) : (
+            /* Compact Success State when no actionable FAIL or PARTIAL targets exist */
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200/80 flex items-center justify-between gap-3 shadow-2xs">
+              <div className="flex items-start sm:items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 border border-emerald-200/70 flex items-center justify-center shrink-0 shadow-2xs">
+                  <CheckCircle2 className="w-4.5 h-4.5" />
+                </div>
+                <div className="space-y-0.5 min-w-0">
+                  <span className="text-xs font-semibold text-emerald-950 block">
+                    Không có điểm cần tinh chỉnh theo thẩm định
+                  </span>
+                  <p className="text-[11px] text-emerald-800/90 font-normal leading-relaxed">
+                    Tất cả đặc trưng quan sát được đều đạt chuẩn mực; các yếu tố không đánh giá được (nếu có) không được coi là lỗi.
+                  </p>
+                </div>
               </div>
             </div>
           )}
