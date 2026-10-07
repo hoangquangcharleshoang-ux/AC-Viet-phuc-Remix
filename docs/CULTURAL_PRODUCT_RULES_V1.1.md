@@ -1,8 +1,8 @@
 # Cultural Product Rules v1.1 — Draft Product Policy
 
-Status: **DRAFT FOR REVIEW — not wired to runtime**
+Status: **APPROVED FOR G2 INTEGRATION — not yet wired to runtime**
 
-Machine-readable draft:
+Machine-readable policy:
 
 - `src/data/culturalProductRulesV11.ts`
 
@@ -103,7 +103,7 @@ over invented accessory
 
 ## 5. Historical-status vocabulary
 
-The draft uses:
+The approved policy uses:
 
 - `HISTORICAL_CANONICAL`
 - `DOCUMENTED_CONTEXTUAL`
@@ -123,7 +123,7 @@ which still answer **how strong the evidence is**.
 
 ## 6. Remix compatibility vocabulary
 
-Draft product categories:
+Approved product categories:
 
 - `SAFE_CONTEMPORARY`
 - `CONTEXTUAL_REMIX`
@@ -371,7 +371,7 @@ For the current Northern/Kinh AC scope:
 
 ## 13. Traditionality thresholds
 
-The machine-readable draft currently proposes:
+The approved product-control thresholds are:
 
 ```text
 70–100 → traditional-leaning
@@ -379,9 +379,7 @@ The machine-readable draft currently proposes:
 0–39   → contemporary-leaning
 ```
 
-These thresholds are a **product-control proposal**, not historical evidence.
-
-They should be reviewed before G2 runtime integration.
+These thresholds are a **product-control policy**, not historical evidence. They are approved for G2 integration and may be revised later only through an explicit product decision.
 
 ## 14. G2 integration targets
 
@@ -411,16 +409,16 @@ Those belong to G2/G3/G4.
 
 ## 16. Approval checklist
 
-Before G2 starts:
+Approved for G2 integration:
 
-- [ ] wearer compatibility matrix reviewed
-- [ ] male áo tứ thân policy approved
-- [ ] accessory auto-selection rules approved
-- [ ] historical-status vocabulary approved
-- [ ] remix-compatibility vocabulary approved
-- [ ] traditionality thresholds approved or revised
-- [ ] no evidence claim overstates its source
-- [ ] machine-readable file matches this document
-- [ ] no runtime import exists yet
+- [x] wearer compatibility matrix reviewed
+- [x] male áo tứ thân policy approved
+- [x] accessory auto-selection rules approved
+- [x] historical-status vocabulary approved
+- [x] remix-compatibility vocabulary approved
+- [x] traditionality thresholds approved
+- [x] no evidence claim overstates its source
+- [x] machine-readable file matches this document
+- [x] no runtime import exists yet
 
-Once approved, change status from **DRAFT FOR REVIEW** to **APPROVED FOR G2 INTEGRATION**.
+Approval means G2 may wire these rules into runtime. It does **not** mean every rule is historical fact; evidence status and historical/contemporary labels remain binding.
