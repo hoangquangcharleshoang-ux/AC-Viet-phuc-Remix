@@ -264,3 +264,24 @@ If a requested change conflicts with a locked invariant:
 4. request or wait for an explicit product decision.
 
 Do not silently override governance.
+
+
+## 21. Definition of done
+
+A feature/change is not complete until all relevant items are true:
+
+1. implementation is complete,
+2. deterministic tests/typecheck/build pass,
+3. required live verification is complete,
+4. relevant repository documentation is synchronized,
+5. roadmap/status reflects reality.
+
+Documentation synchronization means updating only the files affected by the change, for example:
+
+- `README.md` when user-visible capabilities or setup change,
+- `docs/ROADMAP.md` when phase/status changes,
+- `docs/ARCHITECTURE.md` when system boundaries/flows change,
+- policy/contract files when a locked rule changes,
+- `docs/KNOWN_FAILURES.md` when a meaningful new regression is discovered.
+
+Do not mark a feature complete while repository documentation still describes obsolete behavior.
