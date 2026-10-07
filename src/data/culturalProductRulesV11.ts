@@ -1,5 +1,5 @@
 /**
- * AC — Cultural Product Rules Supplement v1.1 (DRAFT, NOT YET WIRED TO RUNTIME)
+ * AC — Cultural Product Rules Supplement v1.1 (APPROVED FOR G2, NOT YET WIRED TO RUNTIME)
  *
  * Purpose:
  * - Normalize wearer/gender, ensemble, accessory and contemporary-remix research
@@ -7,7 +7,7 @@
  * - Keep historical evidence separate from product recommendation behavior.
  *
  * IMPORTANT:
- * - This file is NOT imported by Call A/B/Exploration/QA yet.
+ * - This file is approved for G2 integration but is NOT imported by Call A/B/Exploration/QA yet.
  * - Runtime integration requires explicit G2 work and regression coverage.
  * - Do not treat NOT_ESTABLISHED as "historically impossible".
  */
@@ -19,7 +19,7 @@ import type {
   OccasionId,
 } from '../types/index';
 
-export const CULTURAL_PRODUCT_RULES_VERSION = '1.1-draft' as const;
+export const CULTURAL_PRODUCT_RULES_VERSION = '1.1-approved' as const;
 
 export type HistoricalUseStatus =
   | 'HISTORICAL_CANONICAL'
