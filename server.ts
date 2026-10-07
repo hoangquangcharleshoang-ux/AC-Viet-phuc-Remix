@@ -695,7 +695,14 @@ Nhiệm vụ: Phân tích bối cảnh và chọn ra dáng áo nền tảng phù
 Quy tắc phán quyết:
 - primary: { garmentId, rationale } (1-2 câu giải thích khách quan theo công năng và bối cảnh).
 - alternative: { garmentId, rationale } | null (CHỈ TRẢ VỀ KHI CÓ PHƯƠNG ÁN THỨ HAI THỰC SỰ HỢP LÝ; NẾU KHÔNG CÓ PHƯƠNG ÁN NÀO HỢP LÝ THÌ TRẢ VỀ NULL).
-- Phản hồi định dạng JSON khớp chính xác schema.\n${buildRecommendationPolicyInstructionV11({\n  genderPresentation,\n  promptText,\n  selectedOccasion,\n  selectedStyle,\n  traditionalRatio\n})}`;
+- Phản hồi định dạng JSON khớp chính xác schema.
+${buildRecommendationPolicyInstructionV11({
+  genderPresentation,
+  promptText,
+  selectedOccasion,
+  selectedStyle,
+  traditionalRatio
+})}`;
 
       const userContent = JSON.stringify({
         promptText: promptText || '',
