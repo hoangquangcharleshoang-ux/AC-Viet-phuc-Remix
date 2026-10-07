@@ -186,3 +186,15 @@ Before changing cultural production logic:
 7. update relevant documentation.
 
 Do not patch cultural behavior only inside a prompt string if the rule belongs in structured knowledge.
+
+
+## Approved Supplement v1.1
+
+The approved wearer/accessory/remix product policy is documented in:
+
+- `docs/CULTURAL_PRODUCT_RULES_V1.1.md`
+- `src/data/culturalProductRulesV11.ts`
+
+Status: **approved for G2 integration**.
+
+These files are approved product policy, but they do not change runtime behavior until G2 wiring is implemented. Until then, Call A, Call B, image prompting, and Visual QA continue using the current runtime paths.

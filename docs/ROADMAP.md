@@ -84,7 +84,7 @@ G0 governance baseline is complete. Keep these documents synchronized as the pro
 
 ## G1 — Cultural Knowledge Supplement v1.1
 
-Status: **RESEARCH**
+Status: **APPROVED FOR G2 INTEGRATION**
 
 Goal: close the wearer/gender/styling/accessory knowledge gap without rewriting Master v1.0 from scratch.
 
@@ -101,15 +101,17 @@ Work completed conceptually:
 
 Next after G0:
 
-- **E — Product Rules v1.1**
-- normalize research into machine-readable policy
-- review before integration
+- [x] **E — Product Rules v1.1 drafted**
+- [x] machine-readable draft: `src/data/culturalProductRulesV11.ts`
+- [x] human-readable policy: `docs/CULTURAL_PRODUCT_RULES_V1.1.md`
+- [x] deterministic policy invariants test added
+- [x] product-policy choices reviewed and approved for G2 integration
 
 Important: no cultural rule becomes production logic merely because it appeared in research discussion. It must be approved and encoded with provenance/evidence status.
 
 ## G2 — Integrate Cultural Supplement v1.1
 
-Status: **PLANNED**
+Status: **READY TO START**
 
 Integrate approved v1.1 rules into:
 
