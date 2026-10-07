@@ -26,6 +26,8 @@ import { Section2Blueprint } from './components/Section2Blueprint';
 import { Section3Lookbook } from './components/Section3Lookbook';
 import { Section4Exploration } from './components/Section4Exploration';
 import { ResetConfirmModal } from './components/ResetConfirmModal';
+import { IdleTimeoutWarningModal } from './components/IdleTimeoutWarningModal';
+import { IdleSessionManager } from './services/idleSessionManager';
 import {
   recommendGarment,
   generateBlueprint,
@@ -152,16 +154,20 @@ export default function App() {
 
   const handleVisualizeExploration = async (expResult: ExplorationBlueprintResult) => {
     setBlueprint(expResult.blueprint);
+    setCurrentOutfitFingerprint(expResult.resultingOutfitFingerprint);
+    const branchGender = expResult.wearerGender || activeParams.genderPresentation || 'nam';
     await handleGenerateLookbook({
       garmentId: selectedGarmentId,
       remixProposal: expResult.blueprint.remixProposal,
       context: {
         occasion: activeParams.selectedOccasion,
         style: activeParams.selectedStyle,
-        traditionalRatio: activeParams.traditionalRatio
+        traditionalRatio: activeParams.traditionalRatio,
+        userStyleIntent: activeParams.promptText,
+        genderPresentation: branchGender
       },
       outfitFingerprint: expResult.resultingOutfitFingerprint,
-      genderPresentation: activeParams.genderPresentation || 'nam',
+      genderPresentation: branchGender,
       revisionIndex: 0,
       parentGenerationId: undefined
     }, true);
@@ -179,7 +185,9 @@ export default function App() {
 
   // Session Reset Modal State & Guard
   const [isResetModalOpen, setIsResetModalOpen] = useState<boolean>(false);
+  const [isIdleWarningOpen, setIsIdleWarningOpen] = useState<boolean>(false);
   const isResettingRef = useRef<boolean>(false);
+  const idleManagerRef = useRef<IdleSessionManager | null>(null);
 
   // API Error State
   const [apiError, setApiError] = useState<{
@@ -589,6 +597,7 @@ export default function App() {
 
     const targetFingerprint = payload.outfitFingerprint;
     activeLookbookFingerprintRef.current = targetFingerprint;
+    setCurrentOutfitFingerprint(targetFingerprint);
 
     const currentGender = payload.genderPresentation || draftContext.genderPresentation || activeParams.genderPresentation || 'nam';
 
@@ -805,7 +814,7 @@ export default function App() {
     const nextRevIndex = currentRevIndex + 1;
     if (nextRevIndex > 2) return; // Hard limit: max 2 revisions
 
-    const currentGender = draftContext.genderPresentation || activeParams.genderPresentation || 'nam';
+    const currentGender = currentThread?.revisions[0]?.snapshot.genderPresentation || draftContext.genderPresentation || activeParams.genderPresentation || 'nam';
 
     handleGenerateLookbook(
       {
@@ -1031,6 +1040,58 @@ export default function App() {
     });
   };
 
+  // Idle Session Manager Lifecycle (4m30s warning, 5m reset, in-flight safe deferral)
+  useEffect(() => {
+    const isWorkInFlight = () => {
+      const exploring = Object.values(isExploring).some(Boolean);
+      return (
+        isRecommending ||
+        isLoadingBlueprint ||
+        lookbookState.status === 'generating' ||
+        visualQAState.status === 'loading' ||
+        exploring
+      );
+    };
+
+    const manager = new IdleSessionManager({
+      warningThresholdMs: 270000,
+      resetThresholdMs: 300000,
+      checkIntervalMs: 1000,
+      onShowWarning: () => {
+        setIsIdleWarningOpen(true);
+      },
+      onDismissWarning: () => {
+        setIsIdleWarningOpen(false);
+      },
+      onTriggerReset: () => {
+        console.log('[IdleSessionManager] Triggering canonical session reset due to 5m inactivity');
+        handleConfirmReset();
+      },
+      isWorkInFlight
+    });
+
+    idleManagerRef.current = manager;
+    manager.start();
+
+    const activityEvents = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'];
+    const handleActivity = () => {
+      manager.recordUserActivity();
+    };
+
+    activityEvents.forEach(evt => window.addEventListener(evt, handleActivity, { passive: true }));
+
+    return () => {
+      manager.stop();
+      activityEvents.forEach(evt => window.removeEventListener(evt, handleActivity));
+    };
+  }, [
+    isRecommending,
+    isLoadingBlueprint,
+    lookbookState.status,
+    visualQAState.status,
+    isExploring
+  ]);
+
   return (
     <div className="relative min-h-screen bg-[#F8F9FA] text-[#1F1F1F] selection:bg-stone-900 selection:text-white">
       {/* Background Ambient Aurora Mesh Blobs */}
@@ -1171,19 +1232,6 @@ export default function App() {
           />
         )}
 
-        {/* Phase 2D: Section 4 — Guided Exploration */}
-        {recommendation && blueprint && (
-          <Section4Exploration
-            blueprint={blueprint}
-            selectedGarmentId={selectedGarmentId}
-            explorationResults={explorationResults}
-            isExploring={isExploring}
-            onTriggerExploration={handleTriggerExploration}
-            onVisualizeExploration={handleVisualizeExploration}
-            isGeneratingLookbook={lookbookState.status === 'generating'}
-          />
-        )}
-
         {/* Phase 2B & 2B.1: Section 3 — Editorial Lookbook */}
         {recommendation && (
           <Section3Lookbook
@@ -1193,9 +1241,12 @@ export default function App() {
             isGenerating={lookbookState.status === 'generating'}
             onRegenerate={force => {
               if (blueprint) {
+                const currentThread = getThreadForFingerprint(currentOutfitFingerprint);
+                const currentGender = currentThread?.revisions[0]?.snapshot.genderPresentation || activeParams.genderPresentation || 'nam';
                 handleGenerateLookbook(
                   {
                     garmentId: selectedGarmentId,
+                    genderPresentation: currentGender,
                     remixProposal: {
                       palette: blueprint.remixProposal.palette,
                       fabricId: blueprint.remixProposal.fabricId,
@@ -1207,7 +1258,8 @@ export default function App() {
                       occasion: activeParams.selectedOccasion,
                       style: activeParams.selectedStyle,
                       traditionalRatio: activeParams.traditionalRatio,
-                      userStyleIntent: activeParams.promptText
+                      userStyleIntent: activeParams.promptText,
+                      genderPresentation: currentGender
                     },
                     outfitFingerprint: currentOutfitFingerprint
                   },
@@ -1217,9 +1269,12 @@ export default function App() {
             }}
             onStaleUpdate={() => {
               if (blueprint) {
+                const currentThread = getThreadForFingerprint(currentOutfitFingerprint);
+                const currentGender = currentThread?.revisions[0]?.snapshot.genderPresentation || activeParams.genderPresentation || 'nam';
                 handleGenerateLookbook(
                   {
                     garmentId: selectedGarmentId,
+                    genderPresentation: currentGender,
                     remixProposal: {
                       palette: blueprint.remixProposal.palette,
                       fabricId: blueprint.remixProposal.fabricId,
@@ -1231,7 +1286,8 @@ export default function App() {
                       occasion: activeParams.selectedOccasion,
                       style: activeParams.selectedStyle,
                       traditionalRatio: activeParams.traditionalRatio,
-                      userStyleIntent: activeParams.promptText
+                      userStyleIntent: activeParams.promptText,
+                      genderPresentation: currentGender
                     },
                     outfitFingerprint: currentOutfitFingerprint
                   },
@@ -1249,6 +1305,37 @@ export default function App() {
             onSelectRevision={handleSelectRevision}
           />
         )}
+
+        {/* Phase 2D: Section 4 — Guided Exploration (Gated on root V0 existence for current committed Blueprint) */}
+        {(() => {
+          const currentThreadForFingerprint = getThreadForFingerprint(currentOutfitFingerprint);
+          const rootV0ExistsForCurrentBlueprint = Boolean(
+            (lookbookState.status === 'success' &&
+              lookbookState.outfitFingerprint === currentOutfitFingerprint &&
+              Boolean(lookbookState.imageUrl)) ||
+            (currentThreadForFingerprint &&
+              currentThreadForFingerprint.boundFingerprint === currentOutfitFingerprint &&
+              currentThreadForFingerprint.revisions.some(r => r.revisionIndex === 0 && Boolean(r.imageUrl)) &&
+              lookbookState.status !== 'idle' &&
+              lookbookState.outfitFingerprint === currentOutfitFingerprint)
+          );
+
+          return (
+            recommendation &&
+            blueprint &&
+            rootV0ExistsForCurrentBlueprint && (
+              <Section4Exploration
+                blueprint={blueprint}
+                selectedGarmentId={selectedGarmentId}
+                explorationResults={explorationResults}
+                isExploring={isExploring}
+                onTriggerExploration={handleTriggerExploration}
+                onVisualizeExploration={handleVisualizeExploration}
+                isGeneratingLookbook={lookbookState.status === 'generating'}
+              />
+            )
+          );
+        })()}
       </main>
 
       {/* Confirmation Modal for Session Reset (Requirement 31 & Micro-Patch) */}
@@ -1256,6 +1343,15 @@ export default function App() {
         isOpen={isResetModalOpen}
         onCancel={handleCancelReset}
         onConfirm={handleConfirmReset}
+      />
+
+      {/* Idle Timeout Warning Modal (4m30s Inactivity Warning) */}
+      <IdleTimeoutWarningModal
+        isOpen={isIdleWarningOpen}
+        onContinue={() => {
+          setIsIdleWarningOpen(false);
+          idleManagerRef.current?.recordUserActivity();
+        }}
       />
     </div>
   );

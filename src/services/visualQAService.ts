@@ -97,7 +97,7 @@ export async function verifyLookbookImage(
         });
 
         const code = res.status === 504 ? 'GATEWAY_TIMEOUT' : 'NON_JSON_RESPONSE';
-        const message = `Phản hồi máy chủ không đúng định dạng JSON (${res.status}).`;
+        const message = 'AC chưa hoàn tất được phần đánh giá này. Ảnh của bạn đã được tạo bình thường, nhưng phần tư vấn đang tạm gián đoạn.';
         throw new VisualQAError(code, message, res.status, true);
       }
 

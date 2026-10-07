@@ -3,7 +3,7 @@
  * Phase 2A.5: Model Registry & Task-Aware Model Pools
  */
 
-export type GeminiTask = 'RECOMMENDATION' | 'BLUEPRINT' | 'VISUAL_QA';
+export type GeminiTask = 'RECOMMENDATION' | 'BLUEPRINT' | 'EXPLORATION' | 'VISUAL_QA';
 
 export interface ModelConfig {
   id: string;
@@ -14,46 +14,33 @@ export interface ModelConfig {
 
 /**
  * CALL A — RECOMMENDATION MODEL POOL
- * Order of preference:
- * 1. gemini-3.5-flash-lite (fast, low-latency, sufficient for 3-class garment categorization)
- * 2. gemini-3.1-flash-lite (reliable fallback candidate)
- * 3. gemini-3.5-flash (capable fallback candidate)
+ * Runtime product policy: gemini-3.5-flash-lite ONLY (no stronger model fallback)
  */
 export const TASK_A_MODEL_POOL = [
-  'gemini-3.5-flash-lite',
-  'gemini-3.1-flash-lite',
-  'gemini-3.5-flash'
+  'gemini-3.5-flash-lite'
 ] as const;
 
 const ROUTER_PROFILE = process.env.ROUTER_PROFILE || 'dev-lite';
 
 /**
  * CALL B — BLUEPRINT GENERATION MODEL POOL
- * Order of preference:
- * - dev-lite profile: gemini-3.5-flash-lite first for quota efficiency, followed by strong models.
- * - quality profile: gemini-3.8-flash first.
+ * Runtime product policy: gemini-3.5-flash-lite ONLY (no stronger model fallback)
  */
-export const TASK_B_MODEL_POOL = ROUTER_PROFILE === 'quality'
-  ? [
-      'gemini-3.8-flash',
-      'gemini-3.7-flash',
-      'gemini-3.6-flash',
-      'gemini-3.5-flash',
-      'gemini-3.5-flash-lite'
-    ] as const
-  : [
-      'gemini-3.5-flash-lite',
-      'gemini-3.8-flash',
-      'gemini-3.7-flash',
-      'gemini-3.6-flash',
-      'gemini-3.5-flash'
-    ] as const;
+export const TASK_B_MODEL_POOL = [
+  'gemini-3.5-flash-lite'
+] as const;
+
+/**
+ * GUIDED EXPLORATION BLUEPRINT MODEL POOL
+ * Runtime product policy: gemini-3.5-flash-lite ONLY (no stronger model fallback)
+ */
+export const TASK_EXPLORATION_MODEL_POOL = [
+  'gemini-3.5-flash-lite'
+] as const;
 
 /**
  * CALL C — CULTURAL VISUAL QA MODEL POOL
- * Order of preference:
- * - dev-lite profile: gemini-3.5-flash-lite first, followed by strong models.
- * - quality profile: gemini-3.8-flash first.
+ * Unchanged: Perception quality benchmarked separately across multi-model pool.
  */
 export const TASK_C_MODEL_POOL = ROUTER_PROFILE === 'quality'
   ? [
@@ -125,6 +112,8 @@ export function getModelPoolForTask(task: GeminiTask): readonly string[] {
       return TASK_A_MODEL_POOL;
     case 'BLUEPRINT':
       return TASK_B_MODEL_POOL;
+    case 'EXPLORATION':
+      return TASK_EXPLORATION_MODEL_POOL;
     case 'VISUAL_QA':
       return TASK_C_MODEL_POOL;
     default: {

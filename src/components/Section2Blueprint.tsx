@@ -104,7 +104,8 @@ export const Section2Blueprint: React.FC<Section2BlueprintProps> = ({
         accessoryIds: activeAccessories,
         occasion: selectedOccasion,
         style: selectedStyle,
-        traditionalRatio
+        traditionalRatio,
+        genderPresentation: genderPresentation || 'nam'
       })
     : 'AC-INIT';
 

@@ -991,7 +991,7 @@ app.post('/api/generate-exploration', async (req, res) => {
 
   try {
     const result = await routeGeminiTask({
-      task: 'BLUEPRINT',
+      task: 'EXPLORATION',
       requestId: `exp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       executeWithModel: async (modelId) => {
         const catalogContext = {
@@ -1080,6 +1080,7 @@ Trả về JSON theo schema yêu cầu gồm:
         }
 
         const sanitizedBp = sanitizeBlueprintOutput(selectedGarmentId, parsed.blueprint, context?.promptText || '');
+        const effectiveExpGender = context?.genderPresentation || 'nam';
         const resultingFingerprint = computeOutfitFingerprint({
           garmentId: selectedGarmentId,
           palette: sanitizedBp.remixProposal.palette,
@@ -1089,7 +1090,8 @@ Trả về JSON theo schema yêu cầu gồm:
           accessoryIds: sanitizedBp.remixProposal.accessoryIds,
           occasion: context?.selectedOccasion,
           style: context?.selectedStyle,
-          traditionalRatio: context?.traditionalRatio
+          traditionalRatio: context?.traditionalRatio,
+          genderPresentation: effectiveExpGender
         });
 
         return {
@@ -1099,7 +1101,8 @@ Trả về JSON theo schema yêu cầu gồm:
           resultingOutfitFingerprint: resultingFingerprint,
           blueprint: sanitizedBp,
           stylingRationale: parsed.stylingRationale || 'Gợi ý phối đồ theo hướng khám phá mới.',
-          changesRelativeToOriginal: parsed.changesRelativeToOriginal || 'Điều chỉnh bảng màu và phụ kiện so với bản gốc.'
+          changesRelativeToOriginal: parsed.changesRelativeToOriginal || 'Điều chỉnh bảng màu và phụ kiện so với bản gốc.',
+          wearerGender: effectiveExpGender
         };
       }
     });
@@ -1132,9 +1135,11 @@ app.post('/api/generate-lookbook', async (req, res) => {
     forceRegenerate,
     revisionIndex,
     parentGenerationId,
-    groundedCorrectionPlan
+    groundedCorrectionPlan,
+    genderPresentation
   } = req.body || {};
 
+  const effectiveGender = genderPresentation || context?.genderPresentation || 'nam';
   const isRevision = typeof revisionIndex === 'number' && revisionIndex > 0;
   if (typeof revisionIndex === 'number' && revisionIndex > 2) {
     return res.status(400).json({
@@ -1234,7 +1239,8 @@ app.post('/api/generate-lookbook', async (req, res) => {
     accessoryIds,
     occasion: context?.occasion,
     style: context?.style,
-    traditionalRatio: context?.traditionalRatio
+    traditionalRatio: context?.traditionalRatio,
+    genderPresentation: effectiveGender
   });
 
   if (outfitFingerprint !== recomputedFingerprint) {
@@ -1292,14 +1298,18 @@ app.post('/api/generate-lookbook', async (req, res) => {
         ...remixProposal,
         accessoryIds
       },
-      context: context || { occasion: 'tet', style: 'tre_trung', traditionalRatio: 50 },
+      context: {
+        ...(context || { occasion: 'tet', style: 'tre_trung', traditionalRatio: 50 }),
+        genderPresentation: effectiveGender
+      },
+      genderPresentation: effectiveGender,
       outfitFingerprint: recomputedFingerprint,
       revisionIndex: isRevision ? revisionIndex : 0,
       parentGenerationId,
       groundedCorrectionPlan
     });
 
-    console.log(`[Phase 2B/2C] Generating image via provider for ${garmentId} (fingerprint: ${recomputedFingerprint}, revision: ${isRevision ? revisionIndex : 0})`);
+    console.log(`[Phase 2B/2C] Generating image via provider for ${garmentId} (fingerprint: ${recomputedFingerprint}, revision: ${isRevision ? revisionIndex : 0}, gender: ${effectiveGender})`);
 
     // B. Call Image Provider
     const imagePayload = await imageProvider.generate({
@@ -1317,7 +1327,11 @@ app.post('/api/generate-lookbook', async (req, res) => {
       {
         garmentId,
         remixProposal,
-        context,
+        context: {
+          ...(context || {}),
+          genderPresentation: effectiveGender
+        },
+        genderPresentation: effectiveGender,
         compiledPrompt: compiled.prompt
       },
       isRevision ? revisionIndex : 0,
@@ -1492,7 +1506,15 @@ QUY TẮC QUAN SÁT THỊ GIÁC BẮT BUỘC (STRICT VISION AUDIT POLICY):
 
 7. PHÂN ĐỊNH TRÁCH NHIỆM:
 - Bạn CHỈ trích xuất bằng chứng thô (verdict: PASS | PARTIAL | FAIL | NOT_ASSESSABLE, visualEvidence).
-- TUYỆT ĐỐI KHÔNG tự tính overall status, không cho điểm số 0-100, không dùng ngôn ngữ khen ngợi cảm tính ("đẹp", "chuẩn mực 100%").`;
+- TUYỆT ĐỐI KHÔNG tự tính overall status, không cho điểm số 0-100, không dùng ngôn ngữ khen ngợi cảm tính ("đẹp", "chuẩn mực 100%").
+
+8. CONSERVATIVE SLEEVE EVALUATION (ĐỐI SOÁT ỐNG TAY CĂN CỨ THỊ GIÁC):
+- Một ống tay hẹp/suông/thon gọn (slim/tubular) ĐƠN THUẦN KHÔNG ĐỦ CƠ SỞ để khẳng định đạt chuẩn tay chẽn truyền thống.
+- PASS chỉ được đưa ra khi có ĐỦ BẰNG CHỨNG THỊ GIÁC RÕ RÀNG về hình thái tay chẽn (nhìn rõ dáng tay thuôn hẹp dần về cổ tay, không phải áo ôm hiện đại đơn thuần, không bị nếp gấp/góc chụp/tay gập che khuất hình học).
+- Nếu chỉ thấy một phần hình thái hoặc dáng suông hẹp nhưng chưa đủ độ chắc chắn để khẳng định -> BẮT BUỘC đánh giá "PARTIAL".
+- Nếu tay bị nếp gấp dày đặc, tư thế khoanh/gập tay, góc phối cảnh (foreshortening) hoặc bị che khuất khiến không thể đánh giá chính xác -> BẮT BUỘC đánh giá "NOT_ASSESSABLE".
+- CHỈ đánh "FAIL" khi có mâu thuẫn hình thái học hiển hiện rõ ràng (ví dụ: tay may xòe thụng rộng hình chữ nhật to bản kiểu Áo tấc hoặc xòe cánh tiên).
+- TUYỆT ĐỐI KHÔNG tự động coi ống tay thon suông là PASS; khi không chắc chắn giữa phán quyết kết cấu và dữ liệu không đủ rõ, BẮT BUỘC ƯU TIÊN "NOT_ASSESSABLE" hoặc "PARTIAL" thay vì vội vàng PASS hay FAIL.`;
 
       const promptText = `Hãy kiểm tra ảnh phục trang đính kèm:
 Dáng áo: ${garmentId}

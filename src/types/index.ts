@@ -458,6 +458,13 @@ export interface GroundedCorrectionPlan {
     description: string;
     expectedValue: string;
   }>;
+  actionableDeltas?: Array<{
+    type: 'cultural' | 'fidelity';
+    id: string;
+    name: string;
+    guidance: string;
+    deviation?: string;
+  }>;
   preservationConstraints: string[];
   revisionTargetSummary: string;
 }
@@ -513,6 +520,7 @@ export interface ExplorationBlueprintResult {
   blueprint: BlueprintOutput;
   stylingRationale: string;
   changesRelativeToOriginal: string;
+  wearerGender?: GenderPresentation;
 }
 
 

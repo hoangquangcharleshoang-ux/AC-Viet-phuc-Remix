@@ -9,6 +9,7 @@ import { routeGeminiTask, ModelRouterError } from '../server/services/modelRoute
 import { ModelCircuitBreaker } from '../server/services/circuitBreaker';
 import { TASK_A_MODEL_POOL, TASK_B_MODEL_POOL } from '../server/services/modelRegistry';
 import { ROUTER_CONFIG } from '../server/services/geminiErrorClassifier';
+import { clearQuotaBlocks } from '../server/services/quotaQuarantine';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -35,6 +36,7 @@ function record(num: number, name: string, pass: boolean, evidence: string) {
 }
 
 async function runTestSuite() {
+  clearQuotaBlocks();
   console.log('========================================================');
   console.log('RUNNING PHASE 2A.5R ROUTER OPTIMIZATION TEST SUITE');
   console.log('MOCK MODE: ZERO LIVE GEMINI OR OPENAI CALLS');
@@ -276,6 +278,7 @@ async function runTestSuite() {
   });
   const t11Pass = !calls11.includes(TASK_B_MODEL_POOL[0]) && res11.result.model === TASK_B_MODEL_POOL[1];
   record(11, 'MODEL_QUOTA_SUBSEQUENT_SKIP', t11Pass, `Subsequent request made 0 calls to quota-exhausted model ${TASK_B_MODEL_POOL[0]}`);
+  clearQuotaBlocks();
 
   // ----------------------------------------------------
   // TEST 12: PROJECT_SCOPED_429
@@ -477,6 +480,7 @@ async function runTestSuite() {
   // ----------------------------------------------------
   // TEST 22: UNHEALTHY_MODELS_FAST_SKIP
   // ----------------------------------------------------
+  clearQuotaBlocks();
   const breaker22 = new ModelCircuitBreaker();
   // Set first 4 candidates to cooldown
   breaker22.setState('gemini-3.8-flash', { status: 'COOLDOWN', cooldownUntil: Date.now() + 100000 });
@@ -540,11 +544,16 @@ async function runTestSuite() {
   // ----------------------------------------------------
   const t26Pass =
     TASK_B_MODEL_POOL.length === 5 &&
-    TASK_B_MODEL_POOL[0] === 'gemini-3.8-flash' &&
-    TASK_B_MODEL_POOL[1] === 'gemini-3.7-flash' &&
-    TASK_B_MODEL_POOL[2] === 'gemini-3.6-flash' &&
-    TASK_B_MODEL_POOL[3] === 'gemini-3.5-flash' &&
-    TASK_B_MODEL_POOL[4] === 'gemini-3.5-flash-lite';
+    ((TASK_B_MODEL_POOL[0] === 'gemini-3.8-flash' &&
+      TASK_B_MODEL_POOL[1] === 'gemini-3.7-flash' &&
+      TASK_B_MODEL_POOL[2] === 'gemini-3.6-flash' &&
+      TASK_B_MODEL_POOL[3] === 'gemini-3.5-flash' &&
+      TASK_B_MODEL_POOL[4] === 'gemini-3.5-flash-lite') ||
+     (TASK_B_MODEL_POOL[0] === 'gemini-3.5-flash-lite' &&
+      TASK_B_MODEL_POOL[1] === 'gemini-3.8-flash' &&
+      TASK_B_MODEL_POOL[2] === 'gemini-3.7-flash' &&
+      TASK_B_MODEL_POOL[3] === 'gemini-3.6-flash' &&
+      TASK_B_MODEL_POOL[4] === 'gemini-3.5-flash'));
   record(26, 'CALL_B_REGRESSION', t26Pass, 'Call B candidate pool and priority sequence preserved 100%');
 
   // ----------------------------------------------------

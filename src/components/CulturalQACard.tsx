@@ -123,21 +123,21 @@ export const CulturalQACard: React.FC<CulturalQACardProps> = ({
         return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
             <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-            <span>Quan sát thấy</span>
+            <span>Phù hợp</span>
           </span>
         );
       case 'PARTIAL':
         return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200/60">
             <AlertTriangle className="w-3 h-3 text-amber-600" />
-            <span>Biến tấu nhẹ</span>
+            <span>Chưa hoàn toàn rõ</span>
           </span>
         );
       case 'FAIL':
         return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-50 text-rose-700 border border-rose-200/60">
             <XCircle className="w-3 h-3 text-rose-600" />
-            <span>Lệch chuẩn</span>
+            <span>Cần chỉnh</span>
           </span>
         );
       case 'NOT_ASSESSABLE':
@@ -145,7 +145,7 @@ export const CulturalQACard: React.FC<CulturalQACardProps> = ({
         return (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-stone-100 text-stone-600 border border-stone-200/80">
             <Eye className="w-3 h-3 text-stone-400" />
-            <span>Khuất tầm nhìn</span>
+            <span>Chưa thể xác nhận từ ảnh này</span>
           </span>
         );
     }
@@ -154,7 +154,7 @@ export const CulturalQACard: React.FC<CulturalQACardProps> = ({
   const getCategoryLabel = (category: string) => {
     switch (category) {
       case 'essential':
-        return { label: 'Yếu tố cốt lõi (Essential)', color: 'text-amber-800 bg-amber-50 border-amber-200/80' };
+        return { label: 'Yếu tố cốt lõi', color: 'text-amber-800 bg-amber-50 border-amber-200/80' };
       case 'strongly_characteristic':
         return { label: 'Đặc trưng nổi bật', color: 'text-indigo-800 bg-indigo-50 border-indigo-200/80' };
       case 'supporting':
@@ -165,10 +165,34 @@ export const CulturalQACard: React.FC<CulturalQACardProps> = ({
     }
   };
 
-  const hasCorrectionTargets =
-    correctionPlan &&
-    ((correctionPlan.culturalDeltas && correctionPlan.culturalDeltas.length > 0) ||
-      (correctionPlan.fidelityDeltas && correctionPlan.fidelityDeltas.length > 0));
+  const actionableDeltas = correctionPlan?.actionableDeltas || [
+    ...(correctionPlan?.culturalDeltas || []).map(c => ({
+      type: 'cultural' as const,
+      id: c.traitId,
+      name: c.traitNameVi,
+      guidance: c.canonicalGuidance,
+      deviation: c.observedDeviation
+    })),
+    ...(correctionPlan?.fidelityDeltas || []).map(f => ({
+      type: 'fidelity' as const,
+      id: f.element,
+      name: f.element,
+      guidance: f.expectedValue,
+      deviation: f.description
+    }))
+  ];
+  const actionableCount = actionableDeltas.length;
+  const hasCorrectionTargets = actionableCount > 0;
+
+  const traitsList =
+    qaState.status === 'success' && qaState.result
+      ? qaState.result.culturalIdentity.traits || []
+      : [];
+  const passedCount = traitsList.filter(t => t.verdict === 'PASS').length;
+  const culturalActionableIds = new Set((correctionPlan?.culturalDeltas || []).map(d => d.traitId));
+  const attentionCount = traitsList.filter(
+    t => (t.verdict === 'FAIL' || t.verdict === 'PARTIAL') && !culturalActionableIds.has(t.traitId)
+  ).length;
 
   const isRevisionLimitReached = revisionIndex >= 2;
 
@@ -231,23 +255,33 @@ export const CulturalQACard: React.FC<CulturalQACardProps> = ({
       )}
 
       {/* ------------------------------------------------------------------- */}
-      {/* 4. SUCCESS STATE: Verified Results Card */}
+      {/* 4. SUCCESS STATE: Verified Results Card — AC STYLIST PRIMARY EXPERIENCE */}
       {/* ------------------------------------------------------------------- */}
       {qaState.status === 'success' && qaState.result && (
         <div className="space-y-5">
-          {/* Top Banner: Overall Status */}
+          {/* Top Banner: AC Stylist Header */}
           {(() => {
             const statusStyle = getStatusBadge(qaState.result.culturalIdentity.overallStatus);
+            const assessable = qaState.result.culturalIdentity.assessableTraitsCount;
+            const total = qaState.result.culturalIdentity.totalTraitsCount;
+
+            let statusSnippet = '';
+            if (actionableCount > 0) {
+              statusSnippet = ` · AC gợi ý tinh chỉnh ${actionableCount} điểm`;
+            } else if (attentionCount > 0) {
+              statusSnippet = ` · ${attentionCount} điểm cần lưu ý`;
+            }
+
             return (
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-stone-100">
                 <div className="flex items-start gap-3.5">
-                  <div className="w-10 h-10 rounded-2xl bg-stone-50 border border-stone-200/80 flex items-center justify-center shrink-0 shadow-2xs">
-                    {statusStyle.icon}
+                  <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-200/80 flex items-center justify-center shrink-0 shadow-2xs text-indigo-600">
+                    <Sparkles className="w-5 h-5 text-indigo-600" />
                   </div>
                   <div className="space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-stone-400">
-                        KẾT QUẢ ĐÁNH GIÁ BẢN PHỐI (v{revisionIndex})
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-stone-500">
+                        AC STYLIST ĐÁNH GIÁ (v{revisionIndex})
                       </span>
                       <span className="text-stone-300">•</span>
                       <span
@@ -265,30 +299,109 @@ export const CulturalQACard: React.FC<CulturalQACardProps> = ({
 
                 {/* Metric Pill & Expand Toggle */}
                 <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
-                  {(() => {
-                    const traitsList = qaState.result.culturalIdentity.traits || [];
-                    const passCount = traitsList.filter(t => t.verdict === 'PASS').length;
-                    const needFixCount = traitsList.filter(t => t.verdict === 'FAIL' || t.verdict === 'PARTIAL').length;
-                    const assessable = qaState.result.culturalIdentity.assessableTraitsCount;
-                    const total = qaState.result.culturalIdentity.totalTraitsCount;
-                    return (
-                      <span className="px-3 py-1 rounded-full text-[11px] font-medium bg-stone-100 text-stone-700 border border-stone-200/80 shadow-2xs">
-                        Đánh giá được {assessable}/{total} · {passCount} đạt{needFixCount > 0 ? ` · ${needFixCount} cần chỉnh` : ''}
-                      </span>
-                    );
-                  })()}
+                  <span className="px-3 py-1 rounded-full text-[11px] font-medium bg-stone-100 text-stone-700 border border-stone-200/80 shadow-2xs">
+                    Đánh giá được {assessable}/{total} · {passedCount} đạt{statusSnippet}
+                  </span>
                   <button
                     type="button"
                     onClick={() => setIsDetailsExpanded(prev => !prev)}
                     className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium text-stone-700 hover:text-stone-900 bg-stone-100 hover:bg-stone-200/80 border border-stone-200 transition-colors cursor-pointer"
                   >
-                    <span>{isDetailsExpanded ? 'Thu gọn' : 'Xem chi tiết'}</span>
+                    <span>{isDetailsExpanded ? 'Thu gọn căn cứ' : 'Xem căn cứ đánh giá'}</span>
                     {isDetailsExpanded ? (
                       <ChevronUp className="w-3.5 h-3.5" />
                     ) : (
                       <ChevronDown className="w-3.5 h-3.5" />
                     )}
                   </button>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* AC STYLIST NARRATIVE REVIEW (PRIMARY VIEW) */}
+          {(() => {
+            const passedTraits = traitsList.filter(t => t.verdict === 'PASS');
+            const unconfirmedTraits = traitsList.filter(t => t.verdict === 'NOT_ASSESSABLE');
+            const attentionTraits = traitsList.filter(
+              t => (t.verdict === 'FAIL' || t.verdict === 'PARTIAL') && !culturalActionableIds.has(t.traitId)
+            );
+
+            // Natural summary sentence
+            let overallSummary = 'Bản phối này nhìn tổng thể khá gọn gàng và hài hòa với bối cảnh đã chọn.';
+            if (qaState.result.culturalIdentity.overallStatus === 'PRESERVES_IDENTITY') {
+              overallSummary = 'Bản phối này thể hiện rất tốt phom dáng và các chi tiết cổ truyền, bảo toàn chuẩn mực nét đẹp nguyên bản.';
+            } else if (qaState.result.culturalIdentity.overallStatus === 'CONTEXT_SENSITIVE') {
+              overallSummary = 'Bản phối dung hòa hài hòa giữa vẻ trang nhã cổ phong và nét phóng khoáng của thời trang đương đại.';
+            } else if (qaState.result.culturalIdentity.overallStatus === 'WEAKENS_RECOGNIZABILITY') {
+              overallSummary = 'Bản phối giữ được bố cục chung, tuy nhiên một vài chi tiết cần được lưu ý để nhận diện đặc trưng không bị mờ nhạt.';
+            } else if (qaState.result.culturalIdentity.overallStatus === 'CHANGES_CORE_IDENTIFICATION') {
+              overallSummary = 'Bản phối có dấu hiệu xê dịch khỏi cấu trúc nhận diện cốt lõi; AC khuyên bạn nên điều chỉnh lại các điểm giải phẫu quan trọng.';
+            } else if (qaState.result.culturalIdentity.overallStatus === 'INSUFFICIENT_EVIDENCE') {
+              overallSummary = 'Góc chụp hoặc bố cục ảnh hiện chưa để lộ đủ góc nhìn để khẳng định toàn diện các đặc trưng then chốt.';
+            }
+
+            return (
+              <div className="p-4 sm:p-5 rounded-2xl bg-[#FCFAF6] border border-amber-900/10 space-y-3.5 shadow-2xs">
+                <div className="flex items-start gap-2.5">
+                  <div className="w-7 h-7 rounded-xl bg-amber-100/80 text-amber-900 flex items-center justify-center shrink-0 mt-0.5">
+                    <Sparkles className="w-4 h-4 text-amber-700" />
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-xs font-bold text-stone-900">
+                      Góc nhìn từ AC Stylist
+                    </span>
+                    <p className="text-xs text-stone-700 leading-relaxed font-normal">
+                      {overallSummary}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-stone-200/60 text-xs">
+                  {/* Điểm đang ổn */}
+                  {passedTraits.length > 0 && (
+                    <div className="p-3 rounded-xl bg-white border border-stone-200/70 space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-emerald-800 font-semibold text-[11px]">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Điểm đang ổn ({passedTraits.length})</span>
+                      </div>
+                      <p className="text-[11px] text-stone-600 leading-relaxed">
+                        {passedTraits.slice(0, 3).map(t => t.traitNameVi).join('; ')}
+                        {passedTraits.length > 3 ? ` và ${passedTraits.length - 3} đặc trưng khác.` : '.'}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* AC muốn lưu ý */}
+                  {attentionTraits.length > 0 && (
+                    <div className="p-3 rounded-xl bg-white border border-amber-200/70 space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-amber-900 font-semibold text-[11px]">
+                        <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                        <span>AC muốn lưu ý ({attentionTraits.length})</span>
+                      </div>
+                      <ul className="text-[11px] text-amber-900 list-disc list-inside space-y-0.5">
+                        {attentionTraits.slice(0, 2).map(t => (
+                          <li key={t.traitId}>
+                            <strong>{t.traitNameVi}</strong>: {t.observedDeviation || 'Cần chú ý góc nhìn và tỉ lệ.'}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Chưa thể xác nhận từ ảnh này */}
+                  {unconfirmedTraits.length > 0 && (
+                    <div className="p-3 rounded-xl bg-white border border-stone-200/70 space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-stone-700 font-semibold text-[11px]">
+                        <Eye className="w-3.5 h-3.5 text-stone-500" />
+                        <span>Chưa thể xác nhận từ ảnh này ({unconfirmedTraits.length})</span>
+                      </div>
+                      <p className="text-[11px] text-stone-500 leading-relaxed">
+                        {unconfirmedTraits.slice(0, 2).map(t => t.traitNameVi).join('; ')}
+                        {unconfirmedTraits.length > 2 ? ` và ${unconfirmedTraits.length - 2} đặc trưng khác chưa đủ góc máy.` : ' do góc chụp hoặc nếp gấp vải.'}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -301,7 +414,7 @@ export const CulturalQACard: React.FC<CulturalQACardProps> = ({
                 <div className="space-y-0.5">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-900">
                     <Wand2 className="w-4 h-4 text-amber-600" />
-                    <span>Kế hoạch tinh chỉnh chuẩn xác hai nguồn (Grounded Correction)</span>
+                    <span>AC gợi ý tinh chỉnh {actionableCount} điểm</span>
                   </div>
                   <p className="text-[11px] text-amber-700 font-normal">
                     {correctionPlan?.revisionTargetSummary}
@@ -355,8 +468,25 @@ export const CulturalQACard: React.FC<CulturalQACardProps> = ({
                 )}
               </div>
             </div>
+          ) : attentionCount > 0 ? (
+            /* Advisory Note when there are non-pass items but 0 actionable correction targets */
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 flex items-center justify-between gap-3 shadow-2xs">
+              <div className="flex items-start sm:items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 border border-amber-200/70 flex items-center justify-center shrink-0 shadow-2xs">
+                  <AlertTriangle className="w-4.5 h-4.5" />
+                </div>
+                <div className="space-y-0.5 min-w-0">
+                  <span className="text-xs font-semibold text-amber-950 block">
+                    {attentionCount} điểm lưu ý mang tính tham khảo
+                  </span>
+                  <p className="text-[11px] text-amber-800/90 font-normal leading-relaxed">
+                    Các chi tiết quan sát được không làm sai lệch nhận diện cốt lõi; không có điểm cần can thiệp tinh chỉnh cấu trúc.
+                  </p>
+                </div>
+              </div>
+            </div>
           ) : (
-            /* Compact Success State when no actionable FAIL or PARTIAL targets exist */
+            /* Compact Success State when all assessable traits are clean */
             <div className="p-3.5 sm:p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200/80 flex items-center justify-between gap-3 shadow-2xs">
               <div className="flex items-start sm:items-center gap-3">
                 <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 border border-emerald-200/70 flex items-center justify-center shrink-0 shadow-2xs">
@@ -374,9 +504,14 @@ export const CulturalQACard: React.FC<CulturalQACardProps> = ({
             </div>
           )}
 
-          {/* Collapsible Details Section */}
+          {/* Collapsible Technical Evidence Section ("Xem căn cứ đánh giá") */}
           {isDetailsExpanded && (
-            <div className="space-y-4 pt-1 animate-in fade-in duration-200">
+            <div className="space-y-4 pt-1 animate-in fade-in duration-200 border-t border-stone-200/70">
+              <div className="pt-2">
+                <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider">
+                  Căn cứ đối soát chi tiết từng đặc trưng
+                </span>
+              </div>
               {/* Tab Navigation */}
               <div className="flex items-center gap-2 border-b border-stone-200/70 pb-2">
                 <button

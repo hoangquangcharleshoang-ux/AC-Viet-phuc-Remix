@@ -36,7 +36,8 @@ async function runRegressionTest() {
   // Check 3: Client visualQAService checks content-type and handles non-JSON responses correctly
   const hasNonJsonGuard = visualServiceTs.includes("contentType.includes('application/json')") &&
                           visualServiceTs.includes("NON_JSON_RESPONSE") &&
-                          visualServiceTs.includes("Phản hồi máy chủ không đúng định dạng JSON");
+                          (visualServiceTs.includes("Phản hồi máy chủ không đúng định dạng JSON") ||
+                           visualServiceTs.includes("AC chưa hoàn tất được phần đánh giá này"));
   checks.push(`Client non-json guard and proper error code defined: ${hasNonJsonGuard}`);
   if (!hasNonJsonGuard) passed = false;
 

@@ -116,6 +116,148 @@ async function runStabilizationTests() {
     `Server X-AC-API-Response middleware defined: ${hasApiMarkerMiddleware}, Client header validation: ${hasClientHeaderCheck}`
   );
 
+  // 5. Test Exploration Visibility & Gating
+  const appTsx = fs.readFileSync(path.resolve(__dirname, '../src/App.tsx'), 'utf8');
+  // Check that Section4Exploration is placed below Section3Lookbook
+  const idxLookbook = appTsx.indexOf('<Section3Lookbook');
+  const idxExploration = appTsx.indexOf('<Section4Exploration');
+  const hasRootV0Gating = appTsx.includes('rootV0ExistsForCurrentBlueprint') && appTsx.includes('getThreadForFingerprint(currentOutfitFingerprint)');
+  const isExplorationBelowLookbook = idxLookbook > 0 && idxExploration > idxLookbook;
+
+  // Stale check logic test:
+  const isGatedSemantically = (
+    lookbookState: { status: string; outfitFingerprint?: string; imageUrl?: string },
+    currentFingerprint: string,
+    threadHasV0: boolean
+  ) => {
+    return Boolean(
+      (lookbookState.status === 'success' &&
+        lookbookState.outfitFingerprint === currentFingerprint &&
+        Boolean(lookbookState.imageUrl)) ||
+      (threadHasV0 && lookbookState.status !== 'idle' && lookbookState.outfitFingerprint === currentFingerprint)
+    );
+  };
+
+  const unlockedOnFreshV0 = isGatedSemantically({ status: 'success', outfitFingerprint: 'FP-1', imageUrl: 'http://img' }, 'FP-1', true);
+  const lockedOnIdle = isGatedSemantically({ status: 'idle' }, 'FP-1', false);
+  const lockedOnStaleV0 = isGatedSemantically({ status: 'success', outfitFingerprint: 'FP-OLD', imageUrl: 'http://img' }, 'FP-NEW', false);
+
+  const test5Pass = isExplorationBelowLookbook && hasRootV0Gating && unlockedOnFreshV0 && !lockedOnIdle && !lockedOnStaleV0;
+  record(
+    5,
+    'TEST_EXPLORATION_VISIBILITY_AND_GATING',
+    test5Pass,
+    `Exploration below Lookbook: ${isExplorationBelowLookbook}, Fresh V0 unlocks: ${unlockedOnFreshV0}, Idle locked: ${!lockedOnIdle}, Stale locked: ${!lockedOnStaleV0}`
+  );
+
+  // 6. Test QA Summary vs Actionability Invariant
+  const qaCardTsx = fs.readFileSync(path.resolve(__dirname, '../src/components/CulturalQACard.tsx'), 'utf8');
+  const hasSeparatedCounts = qaCardTsx.includes('passedCount') && qaCardTsx.includes('attentionCount') && qaCardTsx.includes('actionableCount');
+  const hasActionableDeltasContract = qaCardTsx.includes('actionableDeltas.length');
+  const hasAdvisoryLabel = qaCardTsx.includes('điểm cần lưu ý') && !qaCardTsx.includes('needFixCount > 0 ? ` · ${needFixCount} cần chỉnh` : \'\'');
+  const hasPromptCorrectionCount = qaCardTsx.includes('AC gợi ý tinh chỉnh');
+
+  const test6Pass = hasSeparatedCounts && hasActionableDeltasContract && hasAdvisoryLabel && hasPromptCorrectionCount;
+  record(
+    6,
+    'TEST_QA_SUMMARY_ACTIONABILITY_INVARIANT',
+    test6Pass,
+    `Separated counts: ${hasSeparatedCounts}, Actionable contract: ${hasActionableDeltasContract}, Advisory label: ${hasAdvisoryLabel}`
+  );
+
+  // 7. Test Conservative Sleeve Evaluation for Áo ngũ thân tay chẽn
+  const { aggregateCulturalVisualQA } = await import('../server/services/visualQAAggregator');
+  // Visual QA v2 principle:
+  // - A narrow/slim sleeve ALONE is insufficient evidence for canonical tay chẽn.
+  // - When partial relevant geometry is observable without canonical certainty -> PARTIAL -> WEAKENS_RECOGNIZABILITY (not CHANGES_CORE_IDENTIFICATION).
+  // - When genuine contradiction is observable -> FAIL -> CHANGES_CORE_IDENTIFICATION.
+  // - Aggregator does NOT rescue genuine FAIL to PARTIAL.
+  const testGarment = 'ngu_than_chen';
+  const mockSleeveTraitsPartial = [
+    {
+      traitId: 'collar_standing_mandarin',
+      verdict: 'PASS' as const,
+      visualEvidence: 'Cổ đứng lập lĩnh 3cm dựng chuẩn.'
+    },
+    {
+      traitId: 'closure_right_flap_quang',
+      verdict: 'PASS' as const,
+      visualEvidence: 'Vạt cài chéo nách phải.'
+    },
+    {
+      traitId: 'sleeves_fitted_trach_tu',
+      verdict: 'PARTIAL' as const,
+      visualEvidence: 'Ống tay áo suông thon gọn ôm dọc cánh tay nhưng tư thế và nếp gấp chưa thể hiện rõ độ thuôn hẹp dần về cổ tay.',
+      observedDeviation: 'Chưa đủ cơ sở khẳng định phom trách tụ chuẩn'
+    }
+  ];
+
+  const qaResultPartial = aggregateCulturalVisualQA(
+    testGarment,
+    mockSleeveTraitsPartial,
+    {
+      palette: { primaryMatch: 'PASS', supportingMatch: 'PASS', accentMatch: 'PASS' },
+      fabricMatch: 'PASS',
+      lowerGarmentMatch: 'PASS',
+      footwearMatch: 'PASS',
+      expectedAccessories: [],
+      unexpectedAccessories: []
+    },
+    'gen_test_sleeve_partial',
+    'FP-SLEEVE-PARTIAL'
+  );
+
+  const sleeveTraitPartial = qaResultPartial.culturalIdentity.traits.find(t => t.traitId === 'sleeves_fitted_trach_tu');
+  const sleeveIsPartial = sleeveTraitPartial?.verdict === 'PARTIAL';
+  const partialStatusIsWeakens = qaResultPartial.culturalIdentity.overallStatus === 'WEAKENS_RECOGNIZABILITY';
+
+  // Check genuine FAIL case: genuinely preserves FAIL without artificial normalization
+  const mockSleeveTraitsFail = [
+    {
+      traitId: 'collar_standing_mandarin',
+      verdict: 'PASS' as const,
+      visualEvidence: 'Cổ đứng lập lĩnh 3cm dựng chuẩn.'
+    },
+    {
+      traitId: 'closure_right_flap_quang',
+      verdict: 'PASS' as const,
+      visualEvidence: 'Vạt cài chéo nách phải.'
+    },
+    {
+      traitId: 'sleeves_fitted_trach_tu',
+      verdict: 'FAIL' as const,
+      visualEvidence: 'Ống tay thụng rộng hình chữ nhật xòe to bản kiểu Áo tấc.',
+      observedDeviation: 'Ống tay thụng rộng không phải tay chẽn'
+    }
+  ];
+
+  const qaResultFail = aggregateCulturalVisualQA(
+    testGarment,
+    mockSleeveTraitsFail,
+    {
+      palette: { primaryMatch: 'PASS', supportingMatch: 'PASS', accentMatch: 'PASS' },
+      fabricMatch: 'PASS',
+      lowerGarmentMatch: 'PASS',
+      footwearMatch: 'PASS',
+      expectedAccessories: [],
+      unexpectedAccessories: []
+    },
+    'gen_test_sleeve_fail',
+    'FP-SLEEVE-FAIL'
+  );
+
+  const sleeveTraitFail = qaResultFail.culturalIdentity.traits.find(t => t.traitId === 'sleeves_fitted_trach_tu');
+  const sleevePreservesFail = sleeveTraitFail?.verdict === 'FAIL';
+  const failStatusIsCore = qaResultFail.culturalIdentity.overallStatus === 'CHANGES_CORE_IDENTIFICATION';
+
+  const test7Pass = sleeveIsPartial && partialStatusIsWeakens && sleevePreservesFail && failStatusIsCore;
+  record(
+    7,
+    'TEST_CONSERVATIVE_SLEEVE_EVALUATION',
+    test7Pass,
+    `Sleeve partial verdict: ${sleeveTraitPartial?.verdict} (status: ${qaResultPartial.culturalIdentity.overallStatus}), genuine fail preserved: ${sleeveTraitFail?.verdict} (status: ${qaResultFail.culturalIdentity.overallStatus})`
+  );
+
   // Print Summary Table
   console.log('------------------------------------------------------------------------------------------------------------------------');
   console.log('| #  | Test Name                             | Status    | Evidence Summary                                            |');

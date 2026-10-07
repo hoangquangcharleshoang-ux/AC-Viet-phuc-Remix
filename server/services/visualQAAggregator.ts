@@ -65,8 +65,8 @@ export const CANONICAL_GARMENT_TRAITS: Record<GarmentId, GarmentTraitSpec[]> = {
       claim_type: 'structural_anatomy',
       evidence_status: 'VERIFIED',
       source_refs: ['SRC-03', 'SRC-05'],
-      descriptionVi: 'Ống tay áo may thu hẹp dần từ khuỷu tay đến ôm gọn quanh cổ tay, không xòe thụng.',
-      canonicalGuidance: 'Ống tay áo ngũ thân chẽn (trách tụ) phải bóp hẹp gọn gàng ôm dọc cánh tay về cổ tay, không được may xòe thụng rộng.'
+      descriptionVi: 'Ống tay áo may thu hẹp dần từ khuỷu tay đến ôm gọn quanh cổ tay, hoặc phom ống suông chẽn thon gọn ôm dọc cánh tay, không xòe thụng rộng kiểu Áo tấc.',
+      canonicalGuidance: 'Ống tay áo ngũ thân chẽn (trách tụ) phải thuôn gọn hoặc suông chẽn dọc cánh tay về cổ tay, không được may xòe thụng rộng.'
     },
     {
       traitId: 'five_panels_inner_flap',
@@ -723,9 +723,27 @@ export function buildGroundedCorrectionPlan(
     ? `Kế hoạch tinh chỉnh gồm ${culturalDeltas.length} điểm văn hóa và ${fidelityDeltas.length} điểm tương khớp bản phối.`
     : 'Bản phối đã đạt độ chuẩn mực cao, các đặc trưng cốt lõi được bảo toàn.';
 
+  const actionableDeltas = [
+    ...culturalDeltas.map(c => ({
+      type: 'cultural' as const,
+      id: c.traitId,
+      name: c.traitNameVi,
+      guidance: c.canonicalGuidance,
+      deviation: c.observedDeviation
+    })),
+    ...fidelityDeltas.map(f => ({
+      type: 'fidelity' as const,
+      id: f.element,
+      name: f.element,
+      guidance: f.expectedValue,
+      deviation: f.description
+    }))
+  ];
+
   return {
     culturalDeltas,
     fidelityDeltas,
+    actionableDeltas,
     preservationConstraints,
     revisionTargetSummary
   };

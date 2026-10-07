@@ -206,12 +206,18 @@ export async function routeGeminiTask<T>(options: RouteTaskOptions<T>): Promise<
     }
 
     const remainingCandidatesAfterThis = pool.length - (i + 1);
-    // Reserve budget for remaining candidates (dedicated reserve for Blueprint fallbacks)
-    const reservePerCandidate = task === 'BLUEPRINT' ? 3000 : 2000;
+    // Reserve budget for remaining candidates (dedicated reserve for Blueprint and Visual QA fallbacks)
+    const reservePerCandidate = task === 'VISUAL_QA' ? 4500 : task === 'BLUEPRINT' ? 3000 : 2000;
     const fallbackReserveMs =
       remainingCandidatesAfterThis > 0
         ? Math.min(remainingBudget * 0.35, remainingCandidatesAfterThis * reservePerCandidate)
         : 0;
+
+    // For VISUAL_QA: limit to at most 2 attempts (primary + 1 fallback) to ensure clean termination before outer proxy ceiling
+    if (task === 'VISUAL_QA' && attemptCount >= 2) {
+      console.log(`[ModelRouter] VISUAL_QA reached maximum attempt limit (2), avoiding sequential proxy timeout`);
+      break;
+    }
 
     // Strict rawAvailable calculation: DO NOT artificially inflate to minCandidateTimeoutMs,
     // which would eat into fallbackReserveMs!

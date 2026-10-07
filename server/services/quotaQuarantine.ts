@@ -58,3 +58,27 @@ export function isModelQuotaBlocked(modelId: string): boolean {
   }
   return false;
 }
+
+export function clearModelQuotaBlock(modelId: string): void {
+  try {
+    const current = loadQuotaBlocks();
+    if (current[modelId]) {
+      delete current[modelId];
+      fs.writeFileSync(QUARANTINE_FILE, JSON.stringify(current, null, 2), 'utf8');
+      console.log(`[QuotaQuarantine] Cleared quota block for model ${modelId}`);
+    }
+  } catch (err) {
+    console.warn('[QuotaQuarantine] Failed to clear quota block for model:', err);
+  }
+}
+
+export function clearQuotaBlocks(): void {
+  try {
+    if (fs.existsSync(QUARANTINE_FILE)) {
+      fs.writeFileSync(QUARANTINE_FILE, JSON.stringify({}, null, 2), 'utf8');
+      console.log('[QuotaQuarantine] Cleared all quota blocks from quarantine file');
+    }
+  } catch (err) {
+    console.warn('[QuotaQuarantine] Failed to clear quarantine file:', err);
+  }
+}
