@@ -58,7 +58,7 @@ Includes:
 
 ## G0 — Repository Governance
 
-Status: **IN PROGRESS**
+Status: **COMPLETE — governance baseline**
 
 ### Layer 1
 - [x] README.md
@@ -69,17 +69,18 @@ Status: **IN PROGRESS**
 - [x] docs/ROADMAP.md
 
 ### Layer 2
-Planned next:
 
-- [ ] docs/CULTURAL_KNOWLEDGE_POLICY.md
-- [ ] docs/MODEL_ROUTING_POLICY.md
-- [ ] docs/STATE_AND_LINEAGE_INVARIANTS.md
-- [ ] docs/VISUAL_QA_CONTRACT.md
-- [ ] docs/PRIVACY_AND_USER_IMAGES.md
-- [ ] .github/copilot-instructions.md
-- [ ] optional path-specific instructions under .github/instructions/
+- [x] docs/ARCHITECTURE.md
 
-G0 should be completed before large new feature work.
+- [x] docs/CULTURAL_KNOWLEDGE_POLICY.md
+- [x] docs/MODEL_ROUTING_POLICY.md
+- [x] docs/STATE_AND_LINEAGE_INVARIANTS.md
+- [x] docs/VISUAL_QA_CONTRACT.md
+- [x] docs/PRIVACY_AND_USER_IMAGES.md
+- [x] .github/copilot-instructions.md
+- [x] path-specific instructions under .github/instructions/
+
+G0 governance baseline is complete. Keep these documents synchronized as the product evolves.
 
 ## G1 — Cultural Knowledge Supplement v1.1
 
