@@ -186,3 +186,15 @@ Before changing cultural production logic:
 7. update relevant documentation.
 
 Do not patch cultural behavior only inside a prompt string if the rule belongs in structured knowledge.
+
+
+## Draft Supplement v1.1
+
+The current proposed wearer/accessory/remix product policy is documented in:
+
+- `docs/CULTURAL_PRODUCT_RULES_V1.1.md`
+- `src/data/culturalProductRulesV11.ts`
+
+Status: **draft for review**.
+
+These files are not runtime authority until explicitly approved and wired during G2. Their presence in the repository does not by itself change Call A, Call B, image prompting, or Visual QA behavior.
