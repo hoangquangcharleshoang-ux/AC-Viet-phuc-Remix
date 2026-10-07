@@ -16,6 +16,17 @@ Before making changes:
 
 If task-specific policy files are present, read them before implementation.
 
+## Policy map
+
+When relevant, also read:
+
+- `docs/CULTURAL_KNOWLEDGE_POLICY.md`
+- `docs/MODEL_ROUTING_POLICY.md`
+- `docs/STATE_AND_LINEAGE_INVARIANTS.md`
+- `docs/VISUAL_QA_CONTRACT.md`
+- `docs/PRIVACY_AND_USER_IMAGES.md`
+- `docs/ARCHITECTURE.md`
+
 ## Working behavior
 
 - Inspect first; do not patch from assumptions.
@@ -85,3 +96,8 @@ Return:
 6. remaining live verification.
 
 Keep reports factual. Do not declare the entire project complete unless the roadmap says so.
+
+
+## Completion rule
+
+Documentation is part of completion. Update the relevant README, roadmap, architecture, known-failure, or policy files whenever implementation changes make those documents stale.
