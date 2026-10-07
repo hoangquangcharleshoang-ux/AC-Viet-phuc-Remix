@@ -142,7 +142,7 @@ export async function fetchDisambiguationRationale(
 ): Promise<string> {
   const occasion = OCCASIONS[occasionId];
   try {
-    const res = await fetch('/api/disambiguation-rationale', {
+    const data = await fetchJsonApi<{ rationale: string }>('/api/disambiguation-rationale', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -154,9 +154,7 @@ export async function fetchDisambiguationRationale(
           function: g.historical_function
         }))
       })
-    });
-    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-    const data = await res.json();
+    }, 'Lỗi lấy lý do phân định');
     return data.rationale || 'Vui lòng tham khảo bảng so sánh cấu trúc di sản đối chiếu giữa các dáng áo.';
   } catch (err) {
     console.warn('Rationale fetch failed, returning grounded default', err);
@@ -233,14 +231,11 @@ export async function evaluateSlotChange(
   };
 
   try {
-    const res = await fetch('/api/evaluate-linter', {
+    const data = await fetchJsonApi<{ state_version: number; evaluation: LinterEvaluationResult }>('/api/evaluate-linter', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
-    });
-
-    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-    const data = await res.json();
+    }, 'Lỗi kiểm định linter');
 
     // STALE RESPONSE PROTECTION:
     // If the server response state_version is older than the current UI state_version,
@@ -326,13 +321,11 @@ export async function synthesizeDossier(
   };
 
   try {
-    const res = await fetch('/api/synthesize-dossier', {
+    const data = await fetchJsonApi<{ dossier: DossierData }>('/api/synthesize-dossier', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
-    });
-    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
-    const data = await res.json();
+    }, 'Lỗi tổng hợp hồ sơ');
     return data.dossier;
   } catch (err) {
     console.error('Dossier synthesis failed, falling back to local synthesis', err);
@@ -396,6 +389,52 @@ export class ApiError extends Error {
     this.status = status;
     this.retryAfterSeconds = retryAfterSeconds;
   }
+}
+
+async function fetchJsonApi<T>(
+  url: string,
+  options: RequestInit,
+  defaultErrorMsg = 'Lỗi yêu cầu máy chủ'
+): Promise<T> {
+  const res = await fetch(url, options);
+  const contentType = res.headers.get('content-type') || '';
+  const xAcApiResponse = res.headers.get('x-ac-api-response') || '0';
+  const isJson = contentType.includes('application/json');
+
+  if (!isJson || xAcApiResponse !== '1') {
+    const bodyText = await res.text().catch(() => '');
+    console.warn('[ApiClient Diagnostic] Non-JSON or Non-API Response Encountered:', {
+      method: options.method || 'GET',
+      requestUrl: url,
+      responseUrl: res.url,
+      redirected: res.redirected,
+      status: res.status,
+      statusText: res.statusText,
+      contentType,
+      xAcApiResponse,
+      bodySnippet: bodyText.slice(0, 150).replace(/\s+/g, ' ')
+    });
+
+    const code = res.status === 504 ? 'GATEWAY_TIMEOUT' : 'NON_JSON_RESPONSE';
+    const message = `Phản hồi máy chủ không đúng định dạng JSON (${res.status}).`;
+    throw new ApiError(code, message, true, res.status);
+  }
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const code = data.code || (res.status === 429 ? 'GEMINI_QUOTA_EXHAUSTED' : res.status === 503 ? 'GEMINI_TEMPORARILY_UNAVAILABLE' : 'API_ERROR');
+    const message = data.message || `${defaultErrorMsg} (${res.status})`;
+    const retryable = data.retryable ?? (res.status === 503 || res.status === 429);
+    const retryAfter = data.retryAfterSeconds;
+
+    if (res.status === 429) {
+      clientQuotaCooldownUntil = Date.now() + (retryAfter || 60) * 1000;
+    }
+
+    throw new ApiError(code, message, retryable, res.status, retryAfter);
+  }
+
+  return data as T;
 }
 
 // In-Flight Promise Dedup & Multi-Consumer Ownership Maps
@@ -477,6 +516,10 @@ export function getClientQuotaCooldown(): number {
     return Math.max(1, Math.ceil((clientQuotaCooldownUntil - now) / 1000));
   }
   return 0;
+}
+
+export function resetClientQuotaCooldown(): void {
+  clientQuotaCooldownUntil = 0;
 }
 
 export function clearSessionCaches(): void {
@@ -568,7 +611,7 @@ export async function recommendGarment(input: {
     inFlightCallA,
     cacheKey,
     async (signal) => {
-      const res = await fetch('/api/recommend-garment', {
+      const data = await fetchJsonApi<GarmentRecommendationOutput>('/api/recommend-garment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -578,23 +621,7 @@ export async function recommendGarment(input: {
           traditionalRatio: input.traditionalRatio
         }),
         signal
-      });
-
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        const code = errJson.code || (res.status === 429 ? 'GEMINI_QUOTA_EXHAUSTED' : res.status === 503 ? 'GEMINI_TEMPORARILY_UNAVAILABLE' : 'API_ERROR');
-        const message = errJson.message || `Lỗi yêu cầu AI (${res.status})`;
-        const retryable = errJson.retryable ?? (res.status === 503);
-        const retryAfter = errJson.retryAfterSeconds;
-
-        if (res.status === 429) {
-          clientQuotaCooldownUntil = Date.now() + (retryAfter || 60) * 1000;
-        }
-
-        throw new ApiError(code, message, retryable, res.status, retryAfter);
-      }
-
-      const data: GarmentRecommendationOutput = await res.json();
+      }, 'Lỗi yêu cầu AI');
       sessionRecommendationCache.set(cacheKey, data);
       return data;
     },
@@ -665,51 +692,12 @@ export async function generateBlueprint(input: {
     inFlightCallB,
     cacheKey,
     async (signal) => {
-      const res = await fetch('/api/generate-blueprint', {
+      const data = await fetchJsonApi<BlueprintOutput>('/api/generate-blueprint', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
         signal
-      });
-
-      console.log('[BlueprintClient] FETCH_RESOLVED', { cacheKey, status: res.status });
-
-      const contentType = res.headers.get('content-type') || '';
-      const isJson = contentType.includes('application/json');
-
-      if (!isJson) {
-        const bodyText = await res.text().catch(() => '');
-        console.warn('[BlueprintClient Diagnostic] Non-JSON Response Encountered:', {
-          method: 'POST',
-          requestUrl: '/api/generate-blueprint',
-          responseUrl: res.url,
-          redirected: res.redirected,
-          status: res.status,
-          statusText: res.statusText,
-          contentType,
-          bodySnippet: bodyText.slice(0, 150).replace(/\s+/g, ' ')
-        });
-
-        const code = res.status === 504 ? 'GATEWAY_TIMEOUT' : 'NON_JSON_RESPONSE';
-        const message = `Phản hồi máy chủ không đúng định dạng JSON (${res.status}).`;
-        throw new ApiError(code, message, true, res.status);
-      }
-
-      if (!res.ok) {
-        const errJson = await res.json().catch(() => ({}));
-        const code = errJson.code || (res.status === 429 ? 'GEMINI_QUOTA_EXHAUSTED' : res.status === 503 ? 'GEMINI_TEMPORARILY_UNAVAILABLE' : 'API_ERROR');
-        const message = errJson.message || `Lỗi tạo bản phối AI (${res.status})`;
-        const retryable = errJson.retryable ?? (res.status === 503);
-        const retryAfter = errJson.retryAfterSeconds;
-
-        if (res.status === 429) {
-          clientQuotaCooldownUntil = Date.now() + (retryAfter || 60) * 1000;
-        }
-
-        throw new ApiError(code, message, retryable, res.status, retryAfter);
-      }
-
-      const data: BlueprintOutput = await res.json();
+      }, 'Lỗi tạo bản phối AI');
       console.log('[BlueprintClient] BODY_PARSED', { cacheKey });
       sessionBlueprintCache.set(cacheKey, data);
       console.log('[BlueprintClient] INFLIGHT_PROMISE_RESOLVED', { cacheKey });
@@ -749,24 +737,12 @@ export async function generateExplorationBlueprint(input: {
     return sessionExplorationCache.get(cacheKey)!;
   }
 
-  const res = await fetch('/api/generate-exploration', {
+  const data = await fetchJsonApi<ExplorationBlueprintResult>('/api/generate-exploration', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
     signal: input.signal
-  });
-
-  if (!res.ok) {
-    const errJson = await res.json().catch(() => ({}));
-    throw new ApiError(
-      errJson.code || 'EXPLORATION_FAILED',
-      errJson.message || 'Không thể tạo hướng phối khám phá lúc này.',
-      false,
-      res.status
-    );
-  }
-
-  const data: ExplorationBlueprintResult = await res.json();
+  }, 'Không thể tạo hướng phối khám phá lúc này.');
   sessionExplorationCache.set(cacheKey, data);
   return data;
 }

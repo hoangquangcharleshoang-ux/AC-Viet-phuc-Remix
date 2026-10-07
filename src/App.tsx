@@ -489,6 +489,11 @@ export default function App() {
     traditionalRatio: number;
     genderPresentation?: 'nam' | 'nu' | 'neutral';
   }) => {
+    if (isRecommending) {
+      console.log('[App] Omnibox submit ignored: recommendation request already in flight');
+      return;
+    }
+
     // Requirement C: Same-input CTA idempotency
     const currentIsDirty = isDraftDirty(draftContext, activeParams);
     const currentHasResult = Boolean(recommendation && blueprint);
@@ -1113,7 +1118,7 @@ export default function App() {
                   <p className="text-xs text-stone-500 font-normal">
                     {apiError.code === 'GEMINI_QUOTA_EXHAUSTED'
                       ? 'Dữ liệu tri thức lịch sử và các quy chế văn hóa vẫn được bảo toàn nguyên vẹn trong hệ thống.'
-                      : 'Hệ thống hỗ trợ tự động gửi lại yêu cầu khi dịch vụ ổn định trở lại.'}
+                      : 'Vui lòng bấm nút "Thử lại ngay" khi hệ thống sẵn sàng.'}
                   </p>
                 </div>
               </div>

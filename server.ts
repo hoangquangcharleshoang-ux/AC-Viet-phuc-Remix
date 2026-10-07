@@ -38,6 +38,13 @@ const ai = new GoogleGenAI({
 
 const MODEL_NAME = 'gemini-3.8-flash';
 
+// API Response Header Middleware: Ensure canonical X-AC-API-Response and Content-Type on all /api routes
+app.use('/api', (req, res, next) => {
+  res.setHeader('X-AC-API-Response', '1');
+  res.setHeader('Content-Type', 'application/json');
+  next();
+});
+
 /**
  * 1. Disambiguation Contextual Reasoning (Screen 2)
  * Constraints:

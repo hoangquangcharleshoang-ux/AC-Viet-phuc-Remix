@@ -373,7 +373,7 @@ export const Section3Lookbook: React.FC<Section3LookbookProps> = ({
 
                   {/* Dimension / Orientation Subtle Tag */}
                   <div className="absolute top-3.5 left-3.5 px-2.5 py-1 rounded-full text-[10px] font-medium bg-stone-900/60 text-white/90 backdrop-blur-md border border-white/10 shadow-xs pointer-events-none">
-                    1152×1536 · Tỷ lệ 3:4
+                    Tỷ lệ 3:4
                   </div>
 
                   {/* Stale Overlay Badge */}
