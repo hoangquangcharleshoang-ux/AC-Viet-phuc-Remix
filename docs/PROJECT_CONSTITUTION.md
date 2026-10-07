@@ -298,3 +298,20 @@ A change that conflicts with this Constitution requires an explicit product deci
 Coding convenience is not sufficient reason to break a locked contract.
 
 Update the Constitution when a deliberate architecture/product decision changes; do not silently diverge code from documentation.
+
+
+## 22. Documentation synchronization
+
+Repository documentation is part of product state.
+
+When live behavior changes, update the smallest relevant set of documents so code and contracts do not diverge.
+
+Typical mapping:
+
+- user-visible feature/setup change → `README.md`
+- architecture/data-flow change → `docs/ARCHITECTURE.md`
+- phase/status change → `docs/ROADMAP.md`
+- new recurring regression → `docs/KNOWN_FAILURES.md`
+- locked policy change → the corresponding contract file
+
+Do not rewrite stable contracts for ordinary refactors that do not change behavior.
