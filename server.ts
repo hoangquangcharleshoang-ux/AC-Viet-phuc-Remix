@@ -555,6 +555,13 @@ import { compileVisualPrompt } from './server/services/visualPromptCompiler';
 import { OpenAIImageProvider } from './server/services/openAIImageProvider';
 import { ephemeralImageStore } from './server/services/ephemeralImageStore';
 import { computeOutfitFingerprint } from './src/shared/fingerprint';
+import {
+  buildRecommendationPolicyInstructionV11,
+  buildBlueprintAccessoryPolicyV11,
+  enforceRecommendationPolicyV11,
+  sanitizeAccessoryIdsV11,
+  shouldLabelMaleTuThanAsContemporaryV11
+} from './server/services/culturalProductPolicyV11';
 import { ImageProviderError, ImageProvider } from './server/services/imageProvider';
 import type { GenerateLookbookRequest, GenerateLookbookResponse, CulturalVisualQAOutput, RawTraitEvidence, RawOutfitFidelityEvidence, GarmentId } from './src/types/index';
 import {
@@ -646,13 +653,14 @@ const serverBlueprintCache = new Map<string, ServerBlueprintRecord>();
  * Pool: TASK_A_MODEL_POOL (gemini-3.5-flash-lite -> gemini-3.1-flash-lite -> gemini-3.5-flash)
  */
 app.post('/api/recommend-garment', async (req, res) => {
-  const { promptText, selectedOccasion, selectedStyle, traditionalRatio } = req.body;
+  const { promptText, selectedOccasion, selectedStyle, traditionalRatio, genderPresentation } = req.body;
 
   const cacheKey = [
     (promptText || '').trim().toLowerCase(),
     selectedOccasion || 'tet',
     selectedStyle || 'tre_trung',
-    typeof traditionalRatio === 'number' ? traditionalRatio : 50
+    typeof traditionalRatio === 'number' ? traditionalRatio : 50,
+    genderPresentation || 'neutral'
   ].join('|');
 
   // 1. Server Cache Check
@@ -687,13 +695,14 @@ Nhiệm vụ: Phân tích bối cảnh và chọn ra dáng áo nền tảng phù
 Quy tắc phán quyết:
 - primary: { garmentId, rationale } (1-2 câu giải thích khách quan theo công năng và bối cảnh).
 - alternative: { garmentId, rationale } | null (CHỈ TRẢ VỀ KHI CÓ PHƯƠNG ÁN THỨ HAI THỰC SỰ HỢP LÝ; NẾU KHÔNG CÓ PHƯƠNG ÁN NÀO HỢP LÝ THÌ TRẢ VỀ NULL).
-- Phản hồi định dạng JSON khớp chính xác schema.`;
+- Phản hồi định dạng JSON khớp chính xác schema.\n${buildRecommendationPolicyInstructionV11({\n  genderPresentation,\n  promptText,\n  selectedOccasion,\n  selectedStyle,\n  traditionalRatio\n})}`;
 
       const userContent = JSON.stringify({
         promptText: promptText || '',
         selectedOccasion: selectedOccasion || 'tet',
         selectedStyle: selectedStyle || 'tre_trung',
-        traditionalRatio: typeof traditionalRatio === 'number' ? traditionalRatio : 50
+        traditionalRatio: typeof traditionalRatio === 'number' ? traditionalRatio : 50,
+        genderPresentation: genderPresentation || 'neutral'
       });
 
       const routeResult = await routeGeminiTask({
@@ -741,7 +750,13 @@ Quy tắc phán quyết:
         }
       });
 
-      return routeResult.result;
+      return enforceRecommendationPolicyV11(routeResult.result, {
+        genderPresentation,
+        promptText,
+        selectedOccasion,
+        selectedStyle,
+        traditionalRatio
+      });
     });
 
     serverRecommendationCache.set(cacheKey, result);
@@ -762,14 +777,15 @@ Quy tắc phán quyết:
  * Pool: TASK_B_MODEL_POOL (gemini-3.8-flash -> gemini-3.7-flash -> gemini-3.6-flash -> gemini-3.5-flash -> gemini-3.5-flash-lite)
  */
 app.post('/api/generate-blueprint', async (req, res) => {
-  const { selectedGarmentId, promptText, selectedOccasion, selectedStyle, traditionalRatio } = req.body;
+  const { selectedGarmentId, promptText, selectedOccasion, selectedStyle, traditionalRatio, genderPresentation } = req.body;
 
   const cacheKey = [
     selectedGarmentId,
     (promptText || '').trim().toLowerCase(),
     selectedOccasion || 'tet',
     selectedStyle || 'tre_trung',
-    typeof traditionalRatio === 'number' ? traditionalRatio : 50
+    typeof traditionalRatio === 'number' ? traditionalRatio : 50,
+    genderPresentation || 'neutral'
   ].join('|');
 
   // 1. Server Cache Check (Strict garmentId + requestKey match)
@@ -796,12 +812,21 @@ app.post('/api/generate-blueprint', async (req, res) => {
     });
     const isConsumerActive = () => !clientDisconnected;
     const result = await dedupeServerCall(cacheKey, async (isTaskCurrent) => {
+      const accessoryPolicy = buildBlueprintAccessoryPolicyV11({
+        garmentId: selectedGarmentId,
+        genderPresentation,
+        promptText,
+        selectedOccasion,
+        selectedStyle,
+        traditionalRatio
+      });
+      const allowedAccessorySet = new Set(accessoryPolicy.availableAccessoryIds);
       const catalogContext = {
         PALETTES: PALETTES.map(p => ({ id: p.id, hex: p.hex, name: p.name })),
         FABRICS: FABRICS.map(f => ({ id: f.id, label: f.label })),
         LOWER_GARMENTS: LOWER_GARMENTS.map(l => ({ id: l.id, label: l.label })),
         FOOTWEAR: FOOTWEAR.map(f => ({ id: f.id, label: f.label })),
-        ACCESSORIES: ACCESSORIES.map(a => ({ id: a.id, label: a.label }))
+        ACCESSORIES: ACCESSORIES.filter(a => allowedAccessorySet.has(a.id)).map(a => ({ id: a.id, label: a.label }))
       };
 
       const systemInstruction = `Bạn là Chuyên gia Thiết kế Phối đồ (Blueprint Generator) của hệ thống AC (AI Arena Vietnam 2026).
@@ -835,16 +860,15 @@ Yêu cầu lựa chọn:
 3. lowerGarmentId: Đúng 1 ID từ LOWER_GARMENTS.
 4. footwearId: Đúng 1 ID từ FOOTWEAR.
 5. accessoryIds: Mảng từ 0 đến tối đa 2 IDs từ ACCESSORIES (tuyệt đối không chứa giày dép).
-6. contextCautions: Mảng 2-3 câu lưu ý sắc bén về bối cảnh di chuyển, nghi thức và nhận diện cốt lõi (do AI suy luận).
-
-BẮT BUỘC trả về JSON theo schema.`;
+6. contextCautions: Mảng 2-3 câu lưu ý sắc bén về bối cảnh di chuyển, nghi thức và nhận diện cốt lõi (do AI suy luận).\n\n${accessoryPolicy.policyInstruction}\n\nBẮT BUỘC trả về JSON theo schema.`;
 
       const userContent = JSON.stringify({
         selectedGarmentId,
         promptText: promptText || '',
         selectedOccasion: selectedOccasion || 'tet',
         selectedStyle: selectedStyle || 'tre_trung',
-        traditionalRatio: typeof traditionalRatio === 'number' ? traditionalRatio : 50
+        traditionalRatio: typeof traditionalRatio === 'number' ? traditionalRatio : 50,
+        genderPresentation: genderPresentation || 'neutral'
       });
 
       const blueprintSchema = {
@@ -907,7 +931,7 @@ BẮT BUỘC trả về JSON theo schema.`;
             err.rawOutput = response.text;
             throw err;
           }
-          return sanitizeBlueprintOutput(selectedGarmentId, parsed, promptText);
+          return sanitizeBlueprintOutput(selectedGarmentId, parsed, promptText, { genderPresentation, selectedOccasion, selectedStyle, traditionalRatio });
         },
         repairWithModel: async (modelId, rawOutput, errorMsg) => {
           const repairPrompt = `Lược đồ trả về trước đó bị lỗi cú pháp hoặc thiếu trường: ${errorMsg}. Vui lòng tạo lại JSON hợp lệ tuân thủ chính xác schema và danh mục canonical được cung cấp.`;
@@ -929,7 +953,7 @@ BẮT BUỘC trả về JSON theo schema.`;
           if (!parsed.remixProposal) {
             throw new Error('Repaired Blueprint output is still invalid');
           }
-          return sanitizeBlueprintOutput(selectedGarmentId, parsed, promptText);
+          return sanitizeBlueprintOutput(selectedGarmentId, parsed, promptText, { genderPresentation, selectedOccasion, selectedStyle, traditionalRatio });
         }
       });
 
@@ -994,12 +1018,21 @@ app.post('/api/generate-exploration', async (req, res) => {
       task: 'EXPLORATION',
       requestId: `exp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       executeWithModel: async (modelId) => {
+        const accessoryPolicy = buildBlueprintAccessoryPolicyV11({
+          garmentId: selectedGarmentId,
+          genderPresentation: context?.genderPresentation,
+          promptText: context?.promptText,
+          selectedOccasion: context?.selectedOccasion,
+          selectedStyle: context?.selectedStyle,
+          traditionalRatio: context?.traditionalRatio
+        });
+        const allowedAccessorySet = new Set(accessoryPolicy.availableAccessoryIds);
         const catalogContext = {
           PALETTES: PALETTES.map(p => ({ id: p.id, hex: p.hex, name: p.name })),
           FABRICS: FABRICS.map(f => ({ id: f.id, label: f.label })),
           LOWER_GARMENTS: LOWER_GARMENTS.map(l => ({ id: l.id, label: l.label })),
           FOOTWEAR: FOOTWEAR.map(f => ({ id: f.id, label: f.label })),
-          ACCESSORIES: ACCESSORIES.map(a => ({ id: a.id, label: a.label }))
+          ACCESSORIES: ACCESSORIES.filter(a => allowedAccessorySet.has(a.id)).map(a => ({ id: a.id, label: a.label }))
         };
 
         const systemInstruction = `Bạn là Trợ lý Khám phá Phong cách (Exploration Co-pilot) của hệ thống AC (AI Arena Vietnam 2026).
@@ -1014,7 +1047,7 @@ ${JSON.stringify(catalogContext, null, 2)}
 Trả về JSON theo schema yêu cầu gồm:
 1. blueprint (gồm palette, fabricId, lowerGarmentId, footwearId, accessoryIds, contextCautions)
 2. stylingRationale (câu lý giải ngắn gọn bằng tiếng Việt)
-3. changesRelativeToOriginal (câu mô tả điểm thay đổi cốt lõi so với bản gốc bằng tiếng Việt)`;
+3. changesRelativeToOriginal (câu mô tả điểm thay đổi cốt lõi so với bản gốc bằng tiếng Việt)\n\n${accessoryPolicy.policyInstruction}`;
 
         const userContent = JSON.stringify({
           selectedGarmentId,
@@ -1079,7 +1112,12 @@ Trả về JSON theo schema yêu cầu gồm:
           throw new Error('Invalid exploration blueprint response schema');
         }
 
-        const sanitizedBp = sanitizeBlueprintOutput(selectedGarmentId, parsed.blueprint, context?.promptText || '');
+        const sanitizedBp = sanitizeBlueprintOutput(selectedGarmentId, parsed.blueprint, context?.promptText || '', {
+          genderPresentation: context?.genderPresentation,
+          selectedOccasion: context?.selectedOccasion,
+          selectedStyle: context?.selectedStyle,
+          traditionalRatio: context?.traditionalRatio
+        });
         const effectiveExpGender = context?.genderPresentation || 'nam';
         const resultingFingerprint = computeOutfitFingerprint({
           garmentId: selectedGarmentId,
@@ -2138,7 +2176,17 @@ function buildEnrichedPalette(
 }
 
 // Sanitizer ensuring 100% Validated IDs and Strict Separation
-function sanitizeBlueprintOutput(garmentId: string, output: any, promptText?: string) {
+function sanitizeBlueprintOutput(
+  garmentId: string,
+  output: any,
+  promptText?: string,
+  policyContext?: {
+    genderPresentation?: string;
+    selectedOccasion?: string;
+    selectedStyle?: string;
+    traditionalRatio?: number;
+  }
+) {
   const proposal = output.remixProposal || {};
   const p = (promptText || '').toLowerCase();
   const isNoBlack = p.includes('không dùng màu đen') || p.includes('tránh màu đen') || p.includes('không có màu đen');
@@ -2203,18 +2251,50 @@ function sanitizeBlueprintOutput(garmentId: string, output: any, promptText?: st
       .slice(0, 2);
   }
 
+  // G2 v1.1 deterministic cultural accessory policy
+  const accessoryPolicyResult = sanitizeAccessoryIdsV11(accessoryIds, {
+    garmentId: garmentId as GarmentId,
+    genderPresentation: policyContext?.genderPresentation,
+    promptText,
+    selectedOccasion: policyContext?.selectedOccasion,
+    selectedStyle: policyContext?.selectedStyle,
+    traditionalRatio: policyContext?.traditionalRatio
+  });
+  accessoryIds = accessoryPolicyResult.accessoryIds;
+
   // If user requested no accessories, ensure empty
   if (p.includes('không phụ kiện') || p.includes('không dùng phụ kiện') || p.includes('không có phụ kiện')) {
     accessoryIds = [];
   }
 
   // Cautions
-  const contextCautions = Array.isArray(output.contextCautions) && output.contextCautions.length > 0
+  let contextCautions = Array.isArray(output.contextCautions) && output.contextCautions.length > 0
     ? output.contextCautions
     : [
         'Bảo toàn phom dáng và cấu trúc cổ đứng lập lĩnh của trang phục truyền thống.',
         'Kết hợp phụ kiện hiện đại tạo điểm nhấn tinh tế mà không làm lu mờ nhận diện cội nguồn.'
       ];
+
+  if (accessoryPolicyResult.removedAccessoryIds.length > 0) {
+    contextCautions = [
+      ...contextCautions,
+      'AC đã loại bỏ phụ kiện không có hồ sơ tương thích đủ phù hợp với dáng áo, người mặc và bối cảnh hiện tại.'
+    ].slice(0, 3);
+  }
+
+  if (shouldLabelMaleTuThanAsContemporaryV11({
+    garmentId: garmentId as GarmentId,
+    genderPresentation: policyContext?.genderPresentation,
+    promptText,
+    selectedOccasion: policyContext?.selectedOccasion,
+    selectedStyle: policyContext?.selectedStyle,
+    traditionalRatio: policyContext?.traditionalRatio
+  })) {
+    contextCautions = [
+      ...contextCautions,
+      'Bản phối áo tứ thân cho nam trong phạm vi AC hiện được trình bày như tái diễn giải đương đại; corpus hiện tại chưa xác lập đây là cấu hình nam lịch sử mặc định.'
+    ].slice(0, 3);
+  }
 
   return {
     garmentId,
