@@ -451,13 +451,17 @@ export function aggregateCulturalVisualQA(
 
   const essentialPartialCount = essentialTraits.filter(t => t.verdict === 'PARTIAL').length;
   const essentialNotAssessableCount = essentialTraits.filter(t => t.verdict === 'NOT_ASSESSABLE').length;
+  const assessableEssentialsCount = essentialTraits.filter(t => t.verdict !== 'NOT_ASSESSABLE').length;
 
-  const stronglyFailCount = stronglyTraits.filter(t => t.verdict === 'FAIL').length;
+  const verifiedStronglyFails = stronglyTraits.filter(
+    t => t.verdict === 'FAIL' && t.evidence_status === 'VERIFIED'
+  ).length;
+
+  const unverifiedStronglyFails = stronglyTraits.filter(
+    t => t.verdict === 'FAIL' && t.evidence_status !== 'VERIFIED'
+  ).length;
 
   // Requirement 6: Strongly-characteristic PARTIAL policy discrimination
-  // Distinguish whether partial deviation distorts high-authority core structural features
-  // (e.g. silhouette waist cinch, missing buttons) -> WEAKENS_RECOGNIZABILITY,
-  // vs acceptable contemporary styling variation or approximate folk measurement -> CONTEXT_SENSITIVE
   const stronglyWeakeningPartials = stronglyTraits.filter(t => {
     if (t.verdict !== 'PARTIAL') return false;
     if (
@@ -481,6 +485,9 @@ export function aggregateCulturalVisualQA(
 
   let overallStatus: CulturalIdentityStatus = 'PRESERVES_IDENTITY';
 
+  // Per-garment coverage floor (minimum assessable essentials required for positive conclusions)
+  const minimumAssessableEssentials = Math.max(1, Math.ceil(essentialTraits.length * 0.5));
+
   // ----------------------------------------------------
   // STEP 1: Core structure altered
   // Only essential traits with evidence_status === 'VERIFIED' can trigger CHANGES_CORE_IDENTIFICATION
@@ -489,38 +496,33 @@ export function aggregateCulturalVisualQA(
     overallStatus = 'CHANGES_CORE_IDENTIFICATION';
   }
   // ----------------------------------------------------
-  // STEP 2: Insufficient observational evidence
-  // If no verified essential is FAIL, but > 50% of essential traits are NOT_ASSESSABLE -> INSUFFICIENT_EVIDENCE
-  // ----------------------------------------------------
-  else if (essentialTraits.length > 0 && essentialNotAssessableCount / essentialTraits.length > 0.5) {
-    overallStatus = 'INSUFFICIENT_EVIDENCE';
-  }
-  // ----------------------------------------------------
-  // STEP 3: Weakened recognizability
-  // >= 1 essential PARTIAL OR >= 1 strongly_characteristic FAIL OR strongly weakening partial OR unverified essential FAIL
+  // STEP 2: Weakened recognizability
   // ----------------------------------------------------
   else if (
     essentialPartialCount >= 1 ||
-    stronglyFailCount >= 1 ||
+    verifiedStronglyFails >= 1 ||
     stronglyWeakeningPartials >= 1 ||
     unverifiedEssentialFails >= 1
   ) {
     overallStatus = 'WEAKENS_RECOGNIZABILITY';
   }
   // ----------------------------------------------------
-  // STEP 4: Context-sensitive contemporary remix
-  // All observable essential are PASS, and there is an acceptable contemporary variation in supporting/variable or strongly acceptable partial
+  // STEP 3: Insufficient observational evidence / Coverage Floor
+  // Coverage floor gates positive conclusions. If assessable essentials are below minimum or total assessable count is 0 -> INSUFFICIENT_EVIDENCE
   // ----------------------------------------------------
   else if (
-    stronglyAcceptablePartials >= 1 ||
-    supportingTraits.some(t => t.verdict === 'PARTIAL' || t.verdict === 'FAIL') ||
-    variableTraits.some(t => t.verdict === 'PARTIAL')
+    assessableEssentialsCount < minimumAssessableEssentials ||
+    assessableCount === 0
   ) {
-    overallStatus = 'CONTEXT_SENSITIVE';
+    overallStatus = 'INSUFFICIENT_EVIDENCE';
   }
   // ----------------------------------------------------
+  // STEP 4: Explicit canonical CONTEXT_SENSITIVE policy only
+  // ----------------------------------------------------
+  // (Reserved for explicit contextual policy matching)
+  // ----------------------------------------------------
   // STEP 5: Standard identity preservation
-  // All essential PASS, not assessable <= 0.5, no contradictions
+  // Requires meeting assessable coverage floor + all assessable essentials passing (not requiring 100% all essential traits explicitly assessed as PASS).
   // ----------------------------------------------------
   else {
     overallStatus = 'PRESERVES_IDENTITY';
@@ -616,18 +618,34 @@ export function buildGroundedCorrectionPlan(
   }
 
   // 1. Cultural Correction Deltas (FAIL or PARTIAL traits for essential & strongly_characteristic categories)
+  // Rules:
+  // - Approximate/probable numerical folk thresholds (such as exact sleeve length in cm or ~1 tấc beyond fingertip / morphology_measure)
+  //   must NEVER be rigid correction targets unless the trait is completely missing or inverted (e.g. tay thụng turned into tay chẽn).
+  // - Well-defined strongly-characteristic traits with PROBABLE or APPROXIMATE evidence that have a clearly observable structural distortion
+  //   (e.g. five buttons missing or wrong side, collar shape completely missing) CAN be corrected when visibility allows.
+  // - Speculative, ambiguous (DISPUTED), or UNKNOWN evidence must NEVER generate corrections.
+  // - NOT_ASSESSABLE traits NEVER generate corrections.
   const culturalDeltas: GroundedCorrectionPlan['culturalDeltas'] = [];
   for (const trait of qaOutput.culturalIdentity.traits) {
     if (trait.verdict === 'FAIL' || trait.verdict === 'PARTIAL') {
       const spec = specMap.get(trait.traitId);
-      if (spec && (spec.category === 'essential' || spec.category === 'strongly_characteristic')) {
+      if (!spec) continue;
+
+      // Exclude non-VERIFIED traits unless an explicit trait-level actionability policy overrides it
+      // (PROBABLE / APPROXIMATE / DISPUTED / UNKNOWN without explicit override must NOT generate rigid cultural corrections)
+      if (spec.evidence_status !== 'VERIFIED' && !(spec as any).actionableIfApproximate) {
+        continue;
+      }
+
+      // Include essential & strongly_characteristic traits with clear structural distortion
+      if (spec.category === 'essential' || spec.category === 'strongly_characteristic') {
         culturalDeltas.push({
           traitId: trait.traitId,
           traitNameVi: trait.traitNameVi,
           category: trait.category,
           verdict: trait.verdict,
           observedDeviation: trait.observedDeviation || trait.visualEvidence,
-          canonicalGuidance: spec ? spec.canonicalGuidance : `Khôi phục chuẩn mực đặc trưng ${trait.traitNameVi}.`
+          canonicalGuidance: spec.canonicalGuidance || `Khôi phục chuẩn mực đặc trưng ${trait.traitNameVi}.`
         });
       }
     }
@@ -715,6 +733,9 @@ export function buildGroundedCorrectionPlan(
     if (trait.verdict === 'PASS') {
       preservationConstraints.push(`Giữ nguyên đặc trưng đã đạt chuẩn: ${trait.traitNameVi}`);
     }
+  }
+  if (activeAccessoryIds.length > 0) {
+    preservationConstraints.push(`Bảo toàn các phụ kiện đã phê duyệt trong bản phối: ${activeAccessoryIds.join(', ')}`);
   }
   preservationConstraints.push('Bảo toàn bố cục chụp ảnh lookbook toàn thân, ánh sáng tự nhiên và phom dáng người mẫu.');
 

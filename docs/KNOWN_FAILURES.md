@@ -95,8 +95,8 @@ must remain semantically distinct.
 
 **Fixed invariant:**
 
-- 4m30 true user inactivity → warning,
-- 5m00 → canonical reset,
+- 2m30 true user inactivity → warning,
+- 3m00 → canonical reset,
 - user pointer/touch/keyboard/scroll resets timer,
 - provider responses/renders/logging do not count as user activity,
 - destructive reset is deferred safely during meaningful in-flight work.
@@ -140,6 +140,18 @@ Provider failure stops with typed error and explicit retry.
 **Risk:** runtime/session state could be mistaken for configuration and create noisy commits.
 
 **Fixed invariant:** `.quota_quarantine.json` is in `.gitignore` and is not source-controlled.
+
+---
+
+## KF-010 — Handheld fan incorrectly auto-selected without explicit user request
+
+**Symptom:** Male Áo tấc in traditional/ceremonial context without requesting a fan received "Quạt giấy nan tre hương trầm" in Blueprint and generated image.
+
+**Cause:** `getPolicyCompatibleAccessories` allowed `quat_giay_tram_huong` whenever `traditionalRatio <= 59` or when prompt requested it (logical `||`), allowing the traditionality threshold alone to unlock the fan without an explicit user request. In addition, fallback blueprint logic had hardcoded the fan for traditional Áo tấc.
+
+**Fixed invariant:** Handheld fan is `EXPLICIT_ONLY`. If `fanRequestedExplicitly` is false, handheld fan MUST NOT be present in compatible accessory candidates, model must not receive it, and `sanitizeBlueprintWithPolicy` strips it if returned. Only explicit user prompt requests ("quạt", "fan") in policy-compatible contemporary/editorial contexts (`traditionalRatio <= 59`, branch not `MORE_TRADITIONAL`) may unlock the fan.
+
+**Do not reintroduce:** allowing handheld fan based on traditionality threshold or aesthetic fitness without explicit user request.
 
 ---
 

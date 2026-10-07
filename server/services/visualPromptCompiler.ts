@@ -163,7 +163,21 @@ export function compileVisualPrompt(request: GenerateLookbookRequest): CompiledV
     accessoryProse = `Styled thoughtfully with ${accessoryDescriptions}.`;
   }
 
-  // 8. Styling Mood / Context (Restrained, sanitized, clamped)
+  // 8. Hairstyle Policy & Natural Grooming (Cultural Product Rules v1.1 §10)
+  const hasHeadwear = activeAccessories.some(id => id === 'khan_dong_truyen_thong' || id === 'khan_mo_qua');
+  const hairstyleProse = hasHeadwear
+    ? 'Hairstyle is neatly arranged to accommodate the specified traditional headwear cleanly without extra ribbons or ornaments.'
+    : gender === 'nu'
+    ? 'Hairstyle is natural and understated: clean natural long hair, simple contemporary low bun, or neat tied-back hair with zero ornate hairpins or fantasy hair jewelry.'
+    : gender === 'neutral'
+    ? 'Hairstyle is clean, neat, and natural with zero fantasy ornaments or elaborate styling.'
+    : 'Hairstyle is a neat natural contemporary haircut, clean and unadorned with zero topknots or fantasy headdresses.';
+
+  // 9. Strict Cultural Guardrails & No-Invention Directives (Cultural Product Rules v1.1 §11)
+  const culturalSafetyGuards =
+    'STRICT NO-INVENTION GUARD: Render ONLY the styling elements explicitly specified in this brief. Strictly DO NOT add or invent unrequested crowns, imperial headpieces, royal regalia, jade pendants (ngọc bội / kim bội), pearl necklaces, ornate hairpins (trâm), handheld fans, scepters, or ceremonial props unless explicitly listed in the active accessories above. Avoid vague fantasy tropes such as ancient Asian costume, oriental royal accessories, or fantasy imperial styling. Strictly preserve authentic Vietnamese garment tailoring without Chinese Hanfu, Korean Hanbok, or generic East Asian cross-cultural elements.';
+
+  // 10. Styling Mood / Context (Restrained, sanitized, clamped)
   let stylingMood = '';
   if (context?.userStyleIntent && typeof context.userStyleIntent === 'string') {
     const sanitizedIntent = context.userStyleIntent.trim().replace(/[\r\n\t]+/g, ' ').slice(0, 150);
@@ -180,7 +194,9 @@ export function compileVisualPrompt(request: GenerateLookbookRequest): CompiledV
     fabricProse,
     lowerProse,
     footwearProse,
-    accessoryProse
+    accessoryProse,
+    hairstyleProse,
+    culturalSafetyGuards
   ];
 
   if (stylingMood) {

@@ -137,8 +137,8 @@ Do not build a parallel reset path.
 
 Current contract:
 
-- 4m30 true user inactivity → warning,
-- 5m00 → reset,
+- 2m30 true user inactivity → warning,
+- 3m00 → reset,
 - pointer/mouse/touch/keyboard/scroll/click count as activity,
 - provider completion, React rerender, logs, and timers do not count as user activity,
 - destructive reset is deferred while meaningful work is in flight.

@@ -62,6 +62,7 @@ Key services include:
 - `server/services/modelRouter.ts`
 - `server/services/circuitBreaker.ts`
 - `server/services/quotaQuarantine.ts`
+- `server/services/culturalPolicyService.ts`
 - `server/services/visualPromptCompiler.ts`
 - `server/services/openAIImageProvider.ts`
 - `server/services/ephemeralImageStore.ts`
@@ -147,8 +148,8 @@ Session reset clears session-scoped product state and ephemeral session artifact
 
 Idle manager:
 
-- warns after 4m30 of true inactivity,
-- resets at 5m,
+- warns after 2m30 of true inactivity,
+- resets at 3m,
 - defers destructive reset while meaningful work is in flight.
 
 ## Planned extensions

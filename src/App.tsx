@@ -399,6 +399,7 @@ export default function App() {
       selectedOccasion: string;
       selectedStyle: string;
       traditionalRatio: number;
+      genderPresentation?: GenderPresentation;
     }
   ) => {
     // Cancel / Abort previous in-flight Call B if exists (Requirement 5)
@@ -435,6 +436,7 @@ export default function App() {
         selectedOccasion: params.selectedOccasion,
         selectedStyle: params.selectedStyle,
         traditionalRatio: params.traditionalRatio,
+        genderPresentation: params.genderPresentation,
         signal: abortController.signal
       });
 
@@ -1054,8 +1056,8 @@ export default function App() {
     };
 
     const manager = new IdleSessionManager({
-      warningThresholdMs: 270000,
-      resetThresholdMs: 300000,
+      warningThresholdMs: 150000,
+      resetThresholdMs: 180000,
       checkIntervalMs: 1000,
       onShowWarning: () => {
         setIsIdleWarningOpen(true);
@@ -1064,7 +1066,7 @@ export default function App() {
         setIsIdleWarningOpen(false);
       },
       onTriggerReset: () => {
-        console.log('[IdleSessionManager] Triggering canonical session reset due to 5m inactivity');
+        console.log('[IdleSessionManager] Triggering canonical session reset due to 3m inactivity');
         handleConfirmReset();
       },
       isWorkInFlight

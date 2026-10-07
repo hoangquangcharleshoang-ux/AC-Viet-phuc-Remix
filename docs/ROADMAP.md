@@ -111,18 +111,19 @@ Important: no cultural rule becomes production logic merely because it appeared 
 
 ## G2 — Integrate Cultural Supplement v1.1
 
-Status: **READY TO START**
+Status: **Part 1: LIVE VERIFIED | Part 2: IMPLEMENTED (Verification Pending)**
 
 Integrate approved v1.1 rules into:
 
-- Call A Recommendation
-- Call B Blueprint
-- Guided Exploration
-- image prompt compilation
-- Visual QA contextual interpretation
-- AC Stylist explanations
+- [x] Call A Recommendation — Wearer compatibility matrix & deterministic post-model enforcement (LIVE VERIFIED)
+- [x] Call B Blueprint — Context-aware accessory filtering & policy sanitization (LIVE VERIFIED)
+- [x] Guided Exploration — Accessory policy & branch wearer presentation (LIVE VERIFIED)
+- [x] Visual prompt compiler — Explicit allowlist, hairstyle policy & no-invention guardrails (LIVE VERIFIED)
+- [x] Visual QA contextual interpretation & evidence authority gate (Part 2: IMPLEMENTED)
+- [x] AC Stylist explanations & contemporary styling narration (Part 2: IMPLEMENTED)
+- [x] Idle Session timeout adjustment (2m30s warning / 3m00s reset & safe in-flight deferral) (Part 2: IMPLEMENTED)
 
-No model should invent missing wearer/accessory compatibility.
+No model should invent missing wearer/accessory compatibility. Cultural policy remains deterministic wherever a rule exists.
 
 ## G3 — AC Chat Assistant
 

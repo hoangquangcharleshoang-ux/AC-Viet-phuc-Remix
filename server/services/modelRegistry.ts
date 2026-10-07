@@ -97,12 +97,6 @@ export const MODEL_CONFIGS: Record<RouterModelId, ModelConfig> = {
     family: 'flash-lite',
     role: 'classification-fast',
     tierPreference: 1
-  },
-  'gemini-3.1-flash-lite': {
-    id: 'gemini-3.1-flash-lite',
-    family: 'flash-lite',
-    role: 'classification-fast',
-    tierPreference: 2
   }
 };
 

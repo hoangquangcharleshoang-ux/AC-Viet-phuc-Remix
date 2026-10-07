@@ -229,9 +229,9 @@ async function runTestSuite() {
   );
 
   // ----------------------------------------------------
-  // TEST 07: TEST_AGGREGATION_CONTEXT_SENSITIVE
+  // TEST 07: TEST_AGGREGATION_CONTEMPORARY_VARIATION_PRESERVES_IDENTITY
   // ----------------------------------------------------
-  // All essential PASS, supporting/variable has contemporary adaptation (e.g. material/color remix)
+  // All essential PASS, supporting/variable has contemporary adaptation without violating core identity
   const rawTraits7: RawTraitEvidence[] = [
     { traitId: 'collar_standing_mandarin', verdict: 'PASS', visualEvidence: 'Cổ đứng.' },
     { traitId: 'closure_right_flap_quang', verdict: 'PASS', visualEvidence: 'Cài khuy phải.' },
@@ -245,12 +245,12 @@ async function runTestSuite() {
     'gen_7',
     'FP-7'
   );
-  const t7Pass = out7.culturalIdentity.overallStatus === 'CONTEXT_SENSITIVE';
+  const t7Pass = out7.culturalIdentity.overallStatus === 'PRESERVES_IDENTITY';
   record(
     7,
-    'TEST_AGGREGATION_CONTEXT_SENSITIVE',
+    'TEST_AGGREGATION_CONTEMPORARY_VARIATION_PRESERVES_IDENTITY',
     t7Pass,
-    `All essential PASS with supporting remix produced ${out7.culturalIdentity.overallStatus}`
+    `All essential PASS with contemporary material variation produced ${out7.culturalIdentity.overallStatus} (PRESERVES_IDENTITY)`
   );
 
   // ----------------------------------------------------

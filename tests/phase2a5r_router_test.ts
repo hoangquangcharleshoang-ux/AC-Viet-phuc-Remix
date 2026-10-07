@@ -7,7 +7,7 @@
 
 import { routeGeminiTask, ModelRouterError } from '../server/services/modelRouter';
 import { ModelCircuitBreaker } from '../server/services/circuitBreaker';
-import { TASK_A_MODEL_POOL, TASK_B_MODEL_POOL } from '../server/services/modelRegistry';
+import { TASK_A_MODEL_POOL, TASK_B_MODEL_POOL, TASK_C_MODEL_POOL } from '../server/services/modelRegistry';
 import { ROUTER_CONFIG } from '../server/services/geminiErrorClassifier';
 import { clearQuotaBlocks } from '../server/services/quotaQuarantine';
 import fs from 'fs';
@@ -131,28 +131,28 @@ async function runTestSuite() {
   const calls6: string[] = [];
 
   const res6 = await routeGeminiTask({
-    task: 'BLUEPRINT',
+    task: 'VISUAL_QA',
     requestId: 'test_503_single_attempt',
     customBreaker: breaker6,
     executeWithModel: async (modelId) => {
       calls6.push(modelId);
-      if (modelId === TASK_B_MODEL_POOL[0]) {
+      if (modelId === TASK_C_MODEL_POOL[0]) {
         throw { status: 503, message: 'The model is overloaded. Please try again later.' };
       }
       return { model: modelId };
     }
   });
 
-  const primaryCalls6 = calls6.filter(m => m === TASK_B_MODEL_POOL[0]).length;
-  const t6Pass = primaryCalls6 === 1 && res6.result.model === TASK_B_MODEL_POOL[1];
-  record(6, '503_SINGLE_ATTEMPT', t6Pass, `Primary called exactly 1 time on 503 (no immediate same-model retry), cleanly fell back to ${TASK_B_MODEL_POOL[1]}`);
+  const primaryCalls6 = calls6.filter(m => m === TASK_C_MODEL_POOL[0]).length;
+  const t6Pass = primaryCalls6 === 1 && res6.result.model === TASK_C_MODEL_POOL[1];
+  record(6, '503_SINGLE_ATTEMPT', t6Pass, `Primary called exactly 1 time on 503 (no immediate same-model retry), cleanly fell back to ${TASK_C_MODEL_POOL[1]}`);
 
   // ----------------------------------------------------
   // TEST 07: 503_TRANSIENT_COOLDOWN_SKIP
   // ----------------------------------------------------
   const calls7: string[] = [];
   const res7 = await routeGeminiTask({
-    task: 'BLUEPRINT',
+    task: 'VISUAL_QA',
     requestId: 'test_503_subsequent_skip',
     customBreaker: breaker6, // reuse breaker from test 6
     executeWithModel: async (modelId) => {
@@ -160,8 +160,8 @@ async function runTestSuite() {
       return { model: modelId };
     }
   });
-  const t7Pass = !calls7.includes(TASK_B_MODEL_POOL[0]) && res7.result.model === TASK_B_MODEL_POOL[1];
-  record(7, '503_TRANSIENT_COOLDOWN_SKIP', t7Pass, `Subsequent request skipped primary on cooldown: 0 calls to ${TASK_B_MODEL_POOL[0]}, executed ${TASK_B_MODEL_POOL[1]}`);
+  const t7Pass = !calls7.includes(TASK_C_MODEL_POOL[0]) && res7.result.model === TASK_C_MODEL_POOL[1];
+  record(7, '503_TRANSIENT_COOLDOWN_SKIP', t7Pass, `Subsequent request skipped primary on cooldown: 0 calls to ${TASK_C_MODEL_POOL[0]}, executed ${TASK_C_MODEL_POOL[1]}`);
 
   // ----------------------------------------------------
   // TEST 08: TRANSIENT_BACKOFF
@@ -245,12 +245,12 @@ async function runTestSuite() {
   const breaker10 = new ModelCircuitBreaker();
   const calls10: string[] = [];
   const res10 = await routeGeminiTask({
-    task: 'BLUEPRINT',
+    task: 'VISUAL_QA',
     requestId: 'test_model_429',
     customBreaker: breaker10,
     executeWithModel: async (modelId) => {
       calls10.push(modelId);
-      if (modelId === TASK_B_MODEL_POOL[0]) {
+      if (modelId === TASK_C_MODEL_POOL[0]) {
         throw {
           status: 429,
           message: 'Resource exhausted: quota metric per_model limit 15 for ' + modelId,
@@ -260,15 +260,15 @@ async function runTestSuite() {
       return { model: modelId };
     }
   });
-  const t10Pass = calls10.filter(m => m === TASK_B_MODEL_POOL[0]).length === 1 && res10.result.model === TASK_B_MODEL_POOL[1];
-  record(10, 'MODEL_SCOPED_429', t10Pass, `Model-scoped 429 engaged cooldown (3600s) on ${TASK_B_MODEL_POOL[0]} and fell back to ${TASK_B_MODEL_POOL[1]}`);
+  const t10Pass = calls10.filter(m => m === TASK_C_MODEL_POOL[0]).length === 1 && res10.result.model === TASK_C_MODEL_POOL[1];
+  record(10, 'MODEL_SCOPED_429', t10Pass, `Model-scoped 429 engaged cooldown (3600s) on ${TASK_C_MODEL_POOL[0]} and fell back to ${TASK_C_MODEL_POOL[1]}`);
 
   // ----------------------------------------------------
   // TEST 11: MODEL_QUOTA_SUBSEQUENT_SKIP
   // ----------------------------------------------------
   const calls11: string[] = [];
   const res11 = await routeGeminiTask({
-    task: 'BLUEPRINT',
+    task: 'VISUAL_QA',
     requestId: 'test_model_429_subsequent',
     customBreaker: breaker10,
     executeWithModel: async (modelId) => {
@@ -276,8 +276,8 @@ async function runTestSuite() {
       return { model: modelId };
     }
   });
-  const t11Pass = !calls11.includes(TASK_B_MODEL_POOL[0]) && res11.result.model === TASK_B_MODEL_POOL[1];
-  record(11, 'MODEL_QUOTA_SUBSEQUENT_SKIP', t11Pass, `Subsequent request made 0 calls to quota-exhausted model ${TASK_B_MODEL_POOL[0]}`);
+  const t11Pass = !calls11.includes(TASK_C_MODEL_POOL[0]) && res11.result.model === TASK_C_MODEL_POOL[1];
+  record(11, 'MODEL_QUOTA_SUBSEQUENT_SKIP', t11Pass, `Subsequent request made 0 calls to quota-exhausted model ${TASK_C_MODEL_POOL[0]}`);
   clearQuotaBlocks();
 
   // ----------------------------------------------------
@@ -370,20 +370,20 @@ async function runTestSuite() {
   const breaker17 = new ModelCircuitBreaker();
   const calls17: string[] = [];
   await routeGeminiTask({
-    task: 'BLUEPRINT',
+    task: 'VISUAL_QA',
     requestId: 'test_404_disable',
     customBreaker: breaker17,
     executeWithModel: async (modelId) => {
       calls17.push(modelId);
-      if (modelId === TASK_B_MODEL_POOL[0]) {
+      if (modelId === TASK_C_MODEL_POOL[0]) {
         throw { status: 404, message: 'Model not found' };
       }
       return { model: modelId };
     }
   });
-  const disabledState = breaker17.getState(TASK_B_MODEL_POOL[0]);
+  const disabledState = breaker17.getState(TASK_C_MODEL_POOL[0]);
   const t17Pass = Boolean(disabledState.disabledForRuntime);
-  record(17, '404_RUNTIME_DISABLE', t17Pass, `404 permanently disabled candidate ${TASK_B_MODEL_POOL[0]} for this runtime`);
+  record(17, '404_RUNTIME_DISABLE', t17Pass, `404 permanently disabled candidate ${TASK_C_MODEL_POOL[0]} for this runtime`);
 
   // ----------------------------------------------------
   // TEST 18: AUTH_FAIL_FAST
@@ -533,28 +533,18 @@ async function runTestSuite() {
   // TEST 25: CALL_A_REGRESSION
   // ----------------------------------------------------
   const t25Pass =
-    TASK_A_MODEL_POOL.length === 3 &&
-    TASK_A_MODEL_POOL[0] === 'gemini-3.5-flash-lite' &&
-    TASK_A_MODEL_POOL[1] === 'gemini-3.1-flash-lite' &&
-    TASK_A_MODEL_POOL[2] === 'gemini-3.5-flash';
-  record(25, 'CALL_A_REGRESSION', t25Pass, 'Call A candidate pool and priority sequence preserved 100%');
+    TASK_A_MODEL_POOL.length === 1 &&
+    TASK_A_MODEL_POOL[0] === 'gemini-3.5-flash-lite';
+  record(25, 'CALL_A_REGRESSION', t25Pass, 'Call A locked candidate pool gemini-3.5-flash-lite preserved 100%');
 
   // ----------------------------------------------------
   // TEST 26: CALL_B_REGRESSION
   // ----------------------------------------------------
   const t26Pass =
-    TASK_B_MODEL_POOL.length === 5 &&
-    ((TASK_B_MODEL_POOL[0] === 'gemini-3.8-flash' &&
-      TASK_B_MODEL_POOL[1] === 'gemini-3.7-flash' &&
-      TASK_B_MODEL_POOL[2] === 'gemini-3.6-flash' &&
-      TASK_B_MODEL_POOL[3] === 'gemini-3.5-flash' &&
-      TASK_B_MODEL_POOL[4] === 'gemini-3.5-flash-lite') ||
-     (TASK_B_MODEL_POOL[0] === 'gemini-3.5-flash-lite' &&
-      TASK_B_MODEL_POOL[1] === 'gemini-3.8-flash' &&
-      TASK_B_MODEL_POOL[2] === 'gemini-3.7-flash' &&
-      TASK_B_MODEL_POOL[3] === 'gemini-3.6-flash' &&
-      TASK_B_MODEL_POOL[4] === 'gemini-3.5-flash'));
-  record(26, 'CALL_B_REGRESSION', t26Pass, 'Call B candidate pool and priority sequence preserved 100%');
+    TASK_B_MODEL_POOL.length === 1 &&
+    TASK_B_MODEL_POOL[0] === 'gemini-3.5-flash-lite' &&
+    TASK_C_MODEL_POOL.length === 5;
+  record(26, 'CALL_B_REGRESSION', t26Pass, 'Call B locked candidate pool gemini-3.5-flash-lite and Visual QA pool preserved 100%');
 
   // ----------------------------------------------------
   // TEST 27: CACHE_KEY_REGRESSION
@@ -684,13 +674,8 @@ async function runTestSuite() {
   // ----------------------------------------------------
   const breaker32 = new ModelCircuitBreaker();
   const calls32: string[] = [];
-  // Budget = 2000ms with Call A pool (3 candidates).
-  // Candidate 1: remainingCandidates = 2 -> reserve = min(800, 4000) = 800ms -> rawAvailable = 1200ms < 1500ms.
-  // Candidate 1 must be skipped to preserve reserve!
-  // Candidate 2: remainingCandidates = 1 -> reserve = 800ms -> rawAvailable = 1200ms < 1500ms -> skipped!
-  // Candidate 3: remainingCandidates = 0 -> reserve = 0ms -> rawAvailable = 2000ms >= 1500ms -> executes!
   const res32 = await routeGeminiTask({
-    task: 'RECOMMENDATION',
+    task: 'VISUAL_QA',
     requestId: 'test_fallback_reservation_boundary',
     customBreaker: breaker32,
     deadlineMs: 2000,
@@ -700,15 +685,16 @@ async function runTestSuite() {
     }
   });
 
+  const lastCandidate = TASK_C_MODEL_POOL[TASK_C_MODEL_POOL.length - 1];
   const t32Pass =
     calls32.length === 1 &&
-    calls32[0] === TASK_A_MODEL_POOL[2] &&
-    res32.result.model === TASK_A_MODEL_POOL[2];
+    calls32[0] === lastCandidate &&
+    res32.result.model === lastCandidate;
   record(
     32,
     'FALLBACK_BUDGET_RESERVATION_BOUNDARIES',
     t32Pass,
-    `Budget 2000ms safely skipped early candidates to preserve reserve, final candidate ${TASK_A_MODEL_POOL[2]} executed`
+    `Budget 2000ms safely skipped early candidates to preserve reserve, final candidate ${lastCandidate} executed`
   );
 
   // ----------------------------------------------------
@@ -753,10 +739,10 @@ async function runTestSuite() {
       task: 'RECOMMENDATION',
       requestId: 'test_route_deadline_no_penalty',
       customBreaker: breaker34,
-      deadlineMs: 2000,
-      candidateTimeoutCapMs: 2000,
+      deadlineMs: 300,
+      candidateTimeoutCapMs: 10000,
       executeWithModel: async (modelId) => {
-        await new Promise(r => setTimeout(r, 2100)); // exceeds route deadline
+        await new Promise(r => setTimeout(r, 600)); // exceeds route deadline
         return { model: modelId };
       }
     });

@@ -618,7 +618,8 @@ export async function recommendGarment(input: {
           promptText: input.promptText,
           selectedOccasion: input.selectedOccasion,
           selectedStyle: input.selectedStyle,
-          traditionalRatio: input.traditionalRatio
+          traditionalRatio: input.traditionalRatio,
+          genderPresentation: input.genderPresentation || 'nam'
         }),
         signal
       }, 'Lỗi yêu cầu AI');
@@ -685,7 +686,8 @@ export async function generateBlueprint(input: {
     promptText: input.promptText,
     selectedOccasion: input.selectedOccasion,
     selectedStyle: input.selectedStyle,
-    traditionalRatio: input.traditionalRatio
+    traditionalRatio: input.traditionalRatio,
+    genderPresentation: input.genderPresentation || 'nam'
   };
 
   return executeWithInFlightDedup(

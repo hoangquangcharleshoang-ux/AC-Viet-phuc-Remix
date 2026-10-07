@@ -46,7 +46,7 @@ async function runRegressionTest() {
   const navbarTs = fs.readFileSync(path.resolve(__dirname, '../src/components/Navbar.tsx'), 'utf8');
 
   const hasUpdatedTerminology1 = qaCardTs.includes('Đang đánh giá bản phối');
-  const hasUpdatedTerminology2 = qaCardTs.includes('KẾT QUẢ ĐÁNH GIÁ BẢN PHỐI');
+  const hasUpdatedTerminology2 = qaCardTs.includes('KẾT QUẢ ĐÁNH GIÁ BẢN PHỐI') || qaCardTs.includes('AC STYLIST ĐÁNH GIÁ');
   const hasUpdatedTerminology3 = qaCardTs.includes('Tinh chỉnh theo đánh giá');
   const hasUpdatedTerminology4 = navbarTs.includes('Đang đánh giá bản phối...');
 

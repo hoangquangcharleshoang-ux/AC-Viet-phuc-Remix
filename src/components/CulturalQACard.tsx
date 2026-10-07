@@ -332,7 +332,7 @@ export const CulturalQACard: React.FC<CulturalQACardProps> = ({
             if (qaState.result.culturalIdentity.overallStatus === 'PRESERVES_IDENTITY') {
               overallSummary = 'Bản phối này thể hiện rất tốt phom dáng và các chi tiết cổ truyền, bảo toàn chuẩn mực nét đẹp nguyên bản.';
             } else if (qaState.result.culturalIdentity.overallStatus === 'CONTEXT_SENSITIVE') {
-              overallSummary = 'Bản phối dung hòa hài hòa giữa vẻ trang nhã cổ phong và nét phóng khoáng của thời trang đương đại.';
+              overallSummary = 'Bản phối dung hòa hài hòa giữa vẻ trang nhã cổ phong và nét phóng khoáng của thời trang đương đại. Các phụ kiện hoặc biến tấu phối thuộc lớp thẩm mỹ hiện đại, không phải căn cứ lịch sử bắt buộc.';
             } else if (qaState.result.culturalIdentity.overallStatus === 'WEAKENS_RECOGNIZABILITY') {
               overallSummary = 'Bản phối giữ được bố cục chung, tuy nhiên một vài chi tiết cần được lưu ý để nhận diện đặc trưng không bị mờ nhạt.';
             } else if (qaState.result.culturalIdentity.overallStatus === 'CHANGES_CORE_IDENTIFICATION') {
