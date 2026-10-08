@@ -523,4 +523,90 @@ export interface ExplorationBlueprintResult {
   wearerGender?: GenderPresentation;
 }
 
+// =========================================================================
+// PHASE 3A: AC CHAT ASSISTANT DATA CONTRACTS (READ-ONLY GROUNDED CHAT)
+// =========================================================================
+
+export type ACChatAnswerMode =
+  | 'CULTURAL_KNOWLEDGE'
+  | 'PRODUCT_GUIDANCE'
+  | 'CURRENT_LOOK_EXPLANATION'
+  | 'INSUFFICIENT_EVIDENCE';
+
+export interface ACChatEvidenceRef {
+  sourceId: string;
+  evidenceStatus: EvidenceStatus;
+  claimId?: string;
+  title?: string;
+  author?: string;
+  institution?: string;
+  year?: string;
+  url?: string;
+}
+
+export interface ACChatResponse {
+  answer: string;
+  answerMode: ACChatAnswerMode;
+  evidenceRefs: ACChatEvidenceRef[];
+  relatedCurrentState?: {
+    garmentId?: string;
+    fingerprint?: string;
+    generationId?: string;
+  };
+}
+
+export interface ACChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: number;
+  responseMeta?: {
+    answerMode: ACChatAnswerMode;
+    evidenceRefs: ACChatEvidenceRef[];
+    relatedCurrentState?: {
+      garmentId?: string;
+      fingerprint?: string;
+      generationId?: string;
+    };
+  };
+  error?: boolean;
+  retryable?: boolean;
+}
+
+export interface ACChatRequestPayload {
+  message: string;
+  history: Array<{ role: 'user' | 'assistant'; content: string }>;
+  contextState?: {
+    garmentId?: GarmentId;
+    genderPresentation?: GenderPresentation;
+    occasion?: string;
+    style?: string;
+    traditionalRatio?: number;
+    promptText?: string;
+    blueprintSummary?: {
+      primaryColorName?: string;
+      primaryColorHex?: string;
+      fabricName?: string;
+      lowerGarmentName?: string;
+      accessoryNames?: string[];
+      culturalReasoning?: string;
+    };
+    snapshot?: {
+      fingerprint?: string;
+      generationId?: string;
+      activeAccessoryIds?: string[];
+    };
+    visualQA?: {
+      status?: CulturalIdentityStatus;
+      statusLabelVi?: string;
+      overallFidelity?: 'PASS' | 'PARTIAL' | 'FAIL';
+      nonAssessableTraits?: string[];
+      failedTraits?: string[];
+      partialTraits?: string[];
+      unexpectedAccessories?: string[];
+    };
+  };
+}
+
+
 

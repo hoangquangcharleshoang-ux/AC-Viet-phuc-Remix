@@ -41,6 +41,7 @@ Important services include:
 - `src/services/sessionPersistence.ts`
 - `src/services/visualQAPersistence.ts`
 - `src/services/idleSessionManager.ts`
+- `src/services/acChatService.ts`
 
 ## Server responsibilities
 
@@ -54,6 +55,7 @@ The Express server owns:
 - image provider calls,
 - ephemeral image bytes,
 - Visual QA aggregation,
+- AC Chat closed-world grounding & validation,
 - canonical API response boundary.
 
 Key services include:
@@ -67,21 +69,21 @@ Key services include:
 - `server/services/openAIImageProvider.ts`
 - `server/services/ephemeralImageStore.ts`
 - `server/services/visualQAAggregator.ts`
+- `server/services/acChatService.ts`
 
 ## Knowledge boundary
 
 Machine-readable cultural knowledge currently lives in:
 
 `src/data/culturalKnowledgePack.ts`
+`src/data/culturalProductRulesV11.ts`
 
 LLMs consume approved knowledge; they do not define it.
 
-Future Cultural Knowledge Supplement v1.1 should extend structured knowledge rather than scatter cultural rules across prompts/components.
-
 ## Model boundary
 
-### Gemini structured planning
-Recommendation, Blueprint, and Exploration Blueprint currently use `gemini-3.5-flash-lite` only.
+### Gemini structured planning & Chat
+Recommendation, Blueprint, Exploration Blueprint, and AC Chat currently use `gemini-3.5-flash-lite` only.
 
 ### Gemini Visual QA
 Separate perception workload with independently benchmarked routing.
@@ -97,6 +99,8 @@ Browser persistence:
 
 - `ac_session_v1`
 - `ac_visual_qa_v1`
+
+Chat messages are strictly session-only React state with zero persistence to browser storage or database.
 
 They contain structured session/QA metadata, not image bytes or API secrets.
 

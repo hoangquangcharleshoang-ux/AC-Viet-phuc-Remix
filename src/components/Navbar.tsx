@@ -5,18 +5,20 @@
  */
 
 import React from 'react';
-import { Sparkles, RotateCcw } from 'lucide-react';
+import { Sparkles, RotateCcw, MessageSquare } from 'lucide-react';
 
 interface NavbarProps {
   isEvaluating?: boolean;
   hasActiveSession?: boolean;
   onResetSession?: () => void;
+  onOpenChat?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   isEvaluating,
   hasActiveSession,
-  onResetSession
+  onResetSession,
+  onOpenChat
 }) => {
   return (
     <header className="sticky top-0 z-50 w-full glass-nav transition-all">
@@ -32,13 +34,25 @@ export const Navbar: React.FC<NavbarProps> = ({
           </span>
         </div>
 
-        {/* Right side: Clean space, subtle evaluating pill if active, Reset button if active session */}
-        <div className="flex items-center gap-3">
+        {/* Right side: Clean space, subtle evaluating pill if active, Chat button, Reset button if active session */}
+        <div className="flex items-center gap-2 sm:gap-3">
           {isEvaluating && (
             <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-amber-50/90 text-amber-800 border border-amber-200 animate-pulse">
               <Sparkles className="w-3 h-3 animate-spin text-amber-600" />
               <span>Đang đánh giá bản phối...</span>
             </span>
+          )}
+
+          {onOpenChat && (
+            <button
+              type="button"
+              onClick={onOpenChat}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-900 hover:text-amber-950 px-3 py-1.5 rounded-full bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-colors cursor-pointer"
+              title="Mở trợ lý đối thoại AC Chat"
+            >
+              <MessageSquare className="w-3.5 h-3.5 text-amber-700" />
+              <span>Hỏi AC</span>
+            </button>
           )}
 
           {hasActiveSession && onResetSession && (
@@ -60,3 +74,4 @@ export const Navbar: React.FC<NavbarProps> = ({
     </header>
   );
 };
+

@@ -571,6 +571,13 @@ import {
   isFanRequestedExplicitly,
   isPearlRequestedExplicitly
 } from './server/services/culturalPolicyService';
+import {
+  buildACChatGroundingContext,
+  AC_CHAT_SYSTEM_INSTRUCTION,
+  validateAndSanitizeACChatResponse,
+  getOfflineACChatResponse
+} from './server/services/acChatService';
+import type { ACChatRequestPayload, ACChatResponse } from './src/types/index';
 
 // ==========================================
 // PHASE 2B & 2C CACHES & PROVIDER SETUP
@@ -2344,6 +2351,186 @@ function sanitizeBlueprintOutput(
     contextCautions
   };
 }
+
+/**
+ * PHASE 3A: Grounded AC Chat Assistant (Read-Only)
+ * POST /api/ac-chat
+ */
+app.post('/api/ac-chat', async (req, res) => {
+  const startTime = Date.now();
+  const payload: ACChatRequestPayload = req.body || {};
+  const message = typeof payload.message === 'string' ? payload.message.trim() : '';
+
+  // 1. Input validation
+  if (!message) {
+    return res.status(400).json({
+      status: 400,
+      code: 'INVALID_CHAT_REQUEST',
+      message: 'Tin nhắn không được để trống.',
+      retryable: false
+    });
+  }
+
+  if (message.length > 1000) {
+    return res.status(400).json({
+      status: 400,
+      code: 'MESSAGE_TOO_LONG',
+      message: 'Tin nhắn quá dài (tối đa 1.000 ký tự).',
+      retryable: false
+    });
+  }
+
+  // Bound history to max 8 recent items
+  const rawHistory = Array.isArray(payload.history) ? payload.history : [];
+  const boundedHistory = rawHistory
+    .slice(-8)
+    .filter(h => h && (h.role === 'user' || h.role === 'assistant') && typeof h.content === 'string')
+    .map(h => ({ role: h.role, content: h.content.trim().slice(0, 1000) }));
+
+  const currentGarment = payload.contextState?.garmentId || 'ngu_than_chen';
+  const requestId = `chat_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+
+  // 2. Offline / No API Key Fallback
+  if (!apiKey) {
+    const fallbackResponse = getOfflineACChatResponse(message, payload.contextState);
+    console.log(`[AC Chat] Handled offline: requestId=${requestId}, chars=${message.length}, mode=${fallbackResponse.answerMode}`);
+    return res.status(200).json(fallbackResponse);
+  }
+
+  try {
+    let clientDisconnected = false;
+    res.on('close', () => {
+      if (!res.writableEnded) {
+        clientDisconnected = true;
+      }
+    });
+
+    const groundingContext = buildACChatGroundingContext({
+      message,
+      history: boundedHistory,
+      contextState: payload.contextState
+    });
+
+    const systemInstruction = `${AC_CHAT_SYSTEM_INSTRUCTION}
+
+=== TÀI LIỆU CĂN CỨ VĂN HÓA & TRẠNG THÁI HIỆN TẠI (CLOSED-WORLD GROUNDING) ===
+${groundingContext}`;
+
+    // Construct Gemini contents array
+    const contents: any[] = [];
+    for (const item of boundedHistory) {
+      contents.push({
+        role: item.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: item.content }]
+      });
+    }
+    contents.push({
+      role: 'user',
+      parts: [{ text: message }]
+    });
+
+    const chatResponseSchema = {
+      type: Type.OBJECT,
+      properties: {
+        answer: { type: Type.STRING },
+        answerMode: {
+          type: Type.STRING,
+          enum: ['CULTURAL_KNOWLEDGE', 'PRODUCT_GUIDANCE', 'CURRENT_LOOK_EXPLANATION', 'INSUFFICIENT_EVIDENCE']
+        },
+        evidenceRefs: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              sourceId: { type: Type.STRING },
+              evidenceStatus: {
+                type: Type.STRING,
+                enum: ['VERIFIED', 'PROBABLE', 'APPROXIMATE', 'DISPUTED', 'UNKNOWN']
+              },
+              claimId: { type: Type.STRING }
+            },
+            required: ['sourceId', 'evidenceStatus']
+          }
+        },
+        relatedCurrentState: {
+          type: Type.OBJECT,
+          properties: {
+            garmentId: { type: Type.STRING },
+            fingerprint: { type: Type.STRING },
+            generationId: { type: Type.STRING }
+          }
+        }
+      },
+      required: ['answer', 'answerMode', 'evidenceRefs']
+    };
+
+    const routeResult = await routeGeminiTask({
+      task: 'AC_CHAT',
+      requestId,
+      deadlineMs: 18000,
+      candidateTimeoutCapMs: 16000,
+      isStillCurrent: () => !clientDisconnected,
+      executeWithModel: async (modelId, isCanary, signal) => {
+        const response = await ai.models.generateContent({
+          model: modelId,
+          contents,
+          config: {
+            systemInstruction,
+            responseMimeType: 'application/json',
+            responseSchema: chatResponseSchema
+          }
+        });
+
+        const parsed = JSON.parse(response.text?.trim() || '{}');
+        return validateAndSanitizeACChatResponse(parsed, currentGarment);
+      },
+      repairWithModel: async (modelId, rawOutput, errorMsg, signal) => {
+        const repairPrompt = `Lược đồ trả về trước đó bị lỗi hoặc thiếu trường: ${errorMsg}. Vui lòng tạo lại JSON hợp lệ tuân thủ đúng schema AC Chat.`;
+        const response = await ai.models.generateContent({
+          model: modelId,
+          contents: [
+            ...contents,
+            { role: 'model', parts: [{ text: typeof rawOutput === 'string' ? rawOutput : JSON.stringify(rawOutput) }] },
+            { role: 'user', parts: [{ text: repairPrompt }] }
+          ],
+          config: {
+            systemInstruction,
+            responseMimeType: 'application/json',
+            responseSchema: chatResponseSchema
+          }
+        });
+        const parsed = JSON.parse(response.text?.trim() || '{}');
+        return validateAndSanitizeACChatResponse(parsed, currentGarment);
+      }
+    });
+
+    const executionTimeMs = Date.now() - startTime;
+    // Operational logging ONLY (no raw prompt/answer logged)
+    console.log(`[AC Chat] Success: reqId=${requestId}, task=AC_CHAT, chars=${message.length}, history=${boundedHistory.length}, garment=${currentGarment}, mode=${routeResult.result.answerMode}, time=${executionTimeMs}ms`);
+
+    return res.status(200).json(routeResult.result);
+  } catch (err: any) {
+    const executionTimeMs = Date.now() - startTime;
+    console.error(`[AC Chat] Error: reqId=${requestId}, task=AC_CHAT, code=${err.code || 'CHAT_ERROR'}, time=${executionTimeMs}ms:`, err.message);
+
+    // Provide fallback if possible rather than hard 500 error
+    if (err.status === 429 || err.code === 'CANDIDATE_TIMEOUT' || err.status === 504) {
+      return res.status(503).json({
+        status: 503,
+        code: 'CHAT_SERVICE_BUSY',
+        message: 'Trợ lý AC Chat đang xử lý nhiều yêu cầu, vui lòng nhấn "Thử lại" sau giây lát.',
+        retryable: true
+      });
+    }
+
+    return res.status(err.status || 500).json({
+      status: err.status || 500,
+      code: err.code || 'CHAT_INFERENCE_ERROR',
+      message: 'Không thể kết nối với dịch vụ AC Chat. Bạn có thể nhấn thử lại tin nhắn.',
+      retryable: true
+    });
+  }
+});
 
 // Express API Guard: Catch any unmatched /api/* request and return typed JSON 404
 app.all('/api/*', (req, res) => {

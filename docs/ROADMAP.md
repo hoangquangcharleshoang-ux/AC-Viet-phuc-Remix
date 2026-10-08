@@ -111,7 +111,7 @@ Important: no cultural rule becomes production logic merely because it appeared 
 
 ## G2 — Integrate Cultural Supplement v1.1
 
-Status: **Part 1: LIVE VERIFIED | Part 2: IMPLEMENTED (Verification Pending)**
+Status: **COMPLETE · LIVE VERIFIED**
 
 Integrate approved v1.1 rules into:
 
@@ -119,34 +119,36 @@ Integrate approved v1.1 rules into:
 - [x] Call B Blueprint — Context-aware accessory filtering & policy sanitization (LIVE VERIFIED)
 - [x] Guided Exploration — Accessory policy & branch wearer presentation (LIVE VERIFIED)
 - [x] Visual prompt compiler — Explicit allowlist, hairstyle policy & no-invention guardrails (LIVE VERIFIED)
-- [x] Visual QA contextual interpretation & evidence authority gate (Part 2: IMPLEMENTED)
-- [x] AC Stylist explanations & contemporary styling narration (Part 2: IMPLEMENTED)
-- [x] Idle Session timeout adjustment (2m30s warning / 3m00s reset & safe in-flight deferral) (Part 2: IMPLEMENTED)
+- [x] Visual QA contextual interpretation & evidence authority gate (LIVE VERIFIED)
+- [x] AC Stylist explanations & contemporary styling narration (LIVE VERIFIED)
+- [x] Idle Session timeout adjustment (2m30s warning / 3m00s reset & safe in-flight deferral) (LIVE VERIFIED)
 
 No model should invent missing wearer/accessory compatibility. Cultural policy remains deterministic wherever a rule exists.
 
 ## G3 — AC Chat Assistant
 
-Status: **PLANNED**
+### G3A — Grounded, Read-Only Cultural & Look Assistant
+Status: **IMPLEMENTED · LIVE VERIFICATION PENDING**
 
-Target model: `gemini-3.5-flash-lite`
+Target model: `gemini-3.5-flash-lite` ONLY
 
-Initial scope:
+Capabilities:
+- answer questions about the three supported garments (`ngu_than_chen`, `ao_tac`, `ao_tu_than`),
+- explain current Blueprint, Snapshot, and structured Visual QA / AC Stylist findings,
+- answer styling questions using approved knowledge and distinguish historical facts from contemporary styling guidance,
+- explicitly acknowledge insufficient approved evidence ("AC chưa có đủ căn cứ trong bộ tri thức hiện tại để khẳng định điều này."),
+- closed-world grounding (pre-trained model knowledge is not cultural authority; zero image pixel hallucinations),
+- structured evidence references validation against canonical sources (`SRC-03`..`SRC-07`, `SRC-V11`),
+- session-only chat state (zero persistence to localStorage, sessionStorage, or databases; cleared on session reset),
+- strictly read-only: no state mutation, no automatic Blueprint modification.
 
-- answer questions about the three supported garments,
-- explain AC recommendations and QA,
-- answer styling questions using approved knowledge,
-- explicitly acknowledge insufficient approved evidence.
+### G3B — Controlled Chat-Assisted Mutations
+Status: **NOT STARTED**
 
-Initial mutation policy:
-
-- read-only by default,
-- suggestions may expose an explicit "Áp dụng gợi ý" action,
-- chat must not silently modify Blueprint/session state.
-
-Grounding requirement:
-
-Approved AC knowledge only; pretrained model knowledge is not silent historical authority.
+Future capability:
+- controlled "Áp dụng gợi ý" mutation action,
+- explicit user intent gate before applying changes,
+- mutation boundaries and snapshot preservation.
 
 ## G4 — Personal Portrait Try-on
 

@@ -3,7 +3,7 @@
  * Phase 2A.5: Model Registry & Task-Aware Model Pools
  */
 
-export type GeminiTask = 'RECOMMENDATION' | 'BLUEPRINT' | 'EXPLORATION' | 'VISUAL_QA';
+export type GeminiTask = 'RECOMMENDATION' | 'BLUEPRINT' | 'EXPLORATION' | 'VISUAL_QA' | 'AC_CHAT';
 
 export interface ModelConfig {
   id: string;
@@ -39,6 +39,14 @@ export const TASK_EXPLORATION_MODEL_POOL = [
 ] as const;
 
 /**
+ * G3A — AC CHAT ASSISTANT MODEL POOL
+ * Runtime product policy: gemini-3.5-flash-lite ONLY (no stronger model fallback)
+ */
+export const TASK_CHAT_MODEL_POOL = [
+  'gemini-3.5-flash-lite'
+] as const;
+
+/**
  * CALL C — CULTURAL VISUAL QA MODEL POOL
  * Unchanged: Perception quality benchmarked separately across multi-model pool.
  */
@@ -60,11 +68,13 @@ export const TASK_C_MODEL_POOL = ROUTER_PROFILE === 'quality'
 
 export type TaskAModelId = (typeof TASK_A_MODEL_POOL)[number];
 export type TaskBModelId = (typeof TASK_B_MODEL_POOL)[number];
+export type TaskExplorationModelId = (typeof TASK_EXPLORATION_MODEL_POOL)[number];
+export type TaskChatModelId = (typeof TASK_CHAT_MODEL_POOL)[number];
 export type TaskCModelId = (typeof TASK_C_MODEL_POOL)[number];
-export type RouterModelId = TaskAModelId | TaskBModelId | TaskCModelId;
+export type RouterModelId = TaskAModelId | TaskBModelId | TaskExplorationModelId | TaskChatModelId | TaskCModelId;
 
 export const ALL_ROUTER_MODELS: RouterModelId[] = Array.from(
-  new Set([...TASK_A_MODEL_POOL, ...TASK_B_MODEL_POOL, ...TASK_C_MODEL_POOL])
+  new Set([...TASK_A_MODEL_POOL, ...TASK_B_MODEL_POOL, ...TASK_EXPLORATION_MODEL_POOL, ...TASK_CHAT_MODEL_POOL, ...TASK_C_MODEL_POOL])
 );
 
 export const MODEL_CONFIGS: Record<RouterModelId, ModelConfig> = {
@@ -108,6 +118,8 @@ export function getModelPoolForTask(task: GeminiTask): readonly string[] {
       return TASK_B_MODEL_POOL;
     case 'EXPLORATION':
       return TASK_EXPLORATION_MODEL_POOL;
+    case 'AC_CHAT':
+      return TASK_CHAT_MODEL_POOL;
     case 'VISUAL_QA':
       return TASK_C_MODEL_POOL;
     default: {

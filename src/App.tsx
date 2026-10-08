@@ -17,7 +17,8 @@ import {
   VisualQAState,
   LookbookRevisionItem,
   GroundedCorrectionPlan,
-  GenderPresentation
+  GenderPresentation,
+  ACChatMessage
 } from './types';
 import { Navbar } from './components/Navbar';
 import { HeroHomepage } from './components/HeroHomepage';
@@ -27,6 +28,7 @@ import { Section3Lookbook } from './components/Section3Lookbook';
 import { Section4Exploration } from './components/Section4Exploration';
 import { ResetConfirmModal } from './components/ResetConfirmModal';
 import { IdleTimeoutWarningModal } from './components/IdleTimeoutWarningModal';
+import { ACChatDrawer } from './components/ACChatDrawer';
 import { IdleSessionManager } from './services/idleSessionManager';
 import {
   recommendGarment,
@@ -127,6 +129,10 @@ export default function App() {
     MORE_REMIXED: false,
     ALTERNATIVE: false
   });
+
+  // Phase 3A: AC Chat Assistant State (Session-Only, Zero Storage Persistence)
+  const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
+  const [chatMessages, setChatMessages] = useState<ACChatMessage[]>([]);
 
   const handleTriggerExploration = async (intent: ExplorationIntent) => {
     if (!blueprint) return;
@@ -1006,6 +1012,10 @@ export default function App() {
       traditionalRatio: 50
     });
 
+    // Phase 3A: Clear AC Chat on canonical session reset
+    setChatMessages([]);
+    setIsChatOpen(false);
+
     console.log('[SessionReset] STATE_CLEARED');
 
     // E. Close modal
@@ -1109,6 +1119,7 @@ export default function App() {
         isEvaluating={isRecommending || isLoadingBlueprint}
         hasActiveSession={Boolean(recommendation || draftContext.promptText.trim() || lookbookState.status !== 'idle')}
         onResetSession={handleResetRequest}
+        onOpenChat={() => setIsChatOpen(true)}
       />
 
       {/* Center-Focused Main Container */}
@@ -1354,6 +1365,23 @@ export default function App() {
           setIsIdleWarningOpen(false);
           idleManagerRef.current?.recordUserActivity();
         }}
+      />
+
+      {/* Phase 3A: Grounded AC Chat Drawer (Read-Only) */}
+      <ACChatDrawer
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        currentGarmentId={blueprint ? selectedGarmentId : undefined}
+        genderPresentation={blueprint ? (activeParams.genderPresentation || draftContext.genderPresentation) : undefined}
+        activeOccasion={blueprint ? activeParams.selectedOccasion : undefined}
+        activeStyle={blueprint ? activeParams.selectedStyle : undefined}
+        traditionalRatio={blueprint ? activeParams.traditionalRatio : undefined}
+        promptText={blueprint ? activeParams.promptText : undefined}
+        blueprint={blueprint}
+        snapshot={lookbookState.status === 'success' ? lookbookState.snapshot : undefined}
+        visualQAState={visualQAState}
+        messages={chatMessages}
+        setMessages={setChatMessages}
       />
     </div>
   );
